@@ -22,7 +22,7 @@ def ter_iter(amount: int) -> list[int]:
         yield x
 
 
-DEBUG = False
+DEBUG = True
 
 
 class Equation:
@@ -32,24 +32,46 @@ class Equation:
         self.processed = False
         self.solutions = []
 
+    @staticmethod
+    def calc(values: list[int], signs: list[int]) -> int:
+        predicted_result = values[0]
+        for sign, value in zip(signs, values[1:]):
+            if sign == 0:
+                predicted_result += value
+            elif sign == 1:
+                predicted_result *= value
+            else:
+                predicted_result = int(str(predicted_result) + str(value))
+        return predicted_result
+
     def solve_iteratively(self):
         if DEBUG:
             print(f"Solving: {self.result} = {'?'.join(map(str, self.values))}")
         self.solutions = []
         for signs in ter_iter(len(self.values) - 1):
-            predicted_result = self.values[0]
-            for sign, value in zip(signs, self.values[1:]):
-                if sign == 0:
-                    predicted_result += value
-                elif sign == 1:
-                    predicted_result *= value
-                else:
-                    predicted_result = int(str(predicted_result) + str(value))
+            predicted_result = Equation.calc(self.values, signs)
             if predicted_result == self.result:
                 self.solutions.append(signs)
             if DEBUG:
                 print(f"attempt: signs={signs}, result={predicted_result}")
         self.processed = True
+
+    # def solve_mim(self):
+    #     if DEBUG:
+    #         print(f"Solving: {self.result} = {'?'.join(map(str, self.values))}")
+    #     if len(self.values) <= 4:
+    #         if DEBUG:
+    #             print("way too few values provided, defaulting to simple iterations")
+    #         return self.solve_iteratively()
+    #     self.values_before = map()
+    #     for signs in ter_iter(len(self.values) // 2):
+    #         predicted_result = Equation.calc(self.values[:len(signs)], signs)
+    #         self.values_before[predicted_result] = self.values_before.get(predicted_result, []) + [signs]
+    #     self.values_after = map()
+    #     for signs in ter_iter(len(self.values) // 2):
+    #         predicted_result = Equation.calc(self.values, signs)
+    #         self.values_after[predicted_result] = self.values_after.get(predicted_result, []) + [signs]
+    #     self.processed = True
 
 
 class Solver:
@@ -67,6 +89,7 @@ class Solver:
         result = 0
         for equation in self.equations:
             equation.solve_iteratively()
+            # equation.solve_mim()
             if equation.processed and equation.solutions:
                 result += equation.result
         return result
