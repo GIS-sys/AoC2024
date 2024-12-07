@@ -17,7 +17,7 @@ def bin_iter(amount: int) -> list[int]:
         yield x
 
 
-DEBUG = True
+DEBUG = False
 
 
 class Equation:
