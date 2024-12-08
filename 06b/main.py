@@ -47,20 +47,26 @@ class Solver:
 
         # calculate result
         if not (x >= 0 and x < self.width and y >= 0 and y < self.height):
-            return False
-        return True
+            return False, field
+        return True, field
     
     def solve(self):
         result = 0
+        # find out cells where guard is walking originally
+        _, original_field = self.check_loop()
+        # try placing walls on guards' path
         for i in range(len(self.field)):
             for j in range(len(self.field[0])):
                 # skip placing wall on top of the guard
                 if i == self.y and j == self.x:
                     continue
+                # skip placing wall where guard is not walking
+                if original_field[i][j] != "X":
+                    continue
                 # check whether adding a wall will create a loop
                 prev_symbol = self.field[i][j]
                 self.field[i][j] = "#"
-                loop = self.check_loop()
+                loop, _ = self.check_loop()
                 self.field[i][j] = prev_symbol
                 if loop:
                     result += 1
