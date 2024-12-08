@@ -20,13 +20,16 @@ class Solver:
         self.width = len(self.field[0])
         self.height = len(self.field)
 
-    def check_loop(self) -> bool:
-        field = copy(self.field)
+    def check_loop(self, fill_path_field: bool) -> bool:
+        field = self.field
+        if fill_path_field:
+            field = copy(self.field)
         x = self.x
         y = self.y
 
         dir = (0,-1)
-        field[y][x] = "X"
+        if fill_path_field:
+            field[y][x] = "X"
         used = [[set() for __ in _] for _ in field]
 
         while x >= 0 and x < self.width and y >= 0 and y < self.height and hash(dir) not in used[y][x]:
@@ -43,7 +46,8 @@ class Solver:
                 dir = (-dir[1], dir[0])
             else:
                 # else mark as visited
-                field[y][x]="X"
+                if fill_path_field:
+                    field[y][x]="X"
 
         # calculate result
         if not (x >= 0 and x < self.width and y >= 0 and y < self.height):
@@ -53,7 +57,7 @@ class Solver:
     def solve(self):
         result = 0
         # find out cells where guard is walking originally
-        _, original_field = self.check_loop()
+        _, original_field = self.check_loop(fill_path_field=True)
         # try placing walls on guards' path
         for i in range(len(self.field)):
             for j in range(len(self.field[0])):
@@ -66,7 +70,7 @@ class Solver:
                 # check whether adding a wall will create a loop
                 prev_symbol = self.field[i][j]
                 self.field[i][j] = "#"
-                loop, _ = self.check_loop()
+                loop, _ = self.check_loop(fill_path_field=False)
                 self.field[i][j] = prev_symbol
                 if loop:
                     result += 1
