@@ -8,4 +8,4 @@ For easy testing put all your inputs inside of the directory `check/inputs/` in 
 ```bash
 check/run.sh 00
 ```
-to run all the tasks with your inputs
+to run all the tasks with your inputs. Make sure every input file ends with a new line!
