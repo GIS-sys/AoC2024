@@ -59,14 +59,16 @@ class Solver:
             if fill_path_field:
                 lastx, lasty = x, y
             x, y = self.move((x, y), dir)
-            if x is None or y is None:
-                break
             # mark as visited if required
             if fill_path_field:
                 while lastx != x or lasty != y:
                     lastx += dir[0]
                     lasty += dir[1]
+                    if not(0 <= lastx and lastx < self.width and 0 <= lasty and lasty < self.height):
+                        break
                     field[lasty][lastx] = "X"
+            if x is None or y is None:
+                break
             # turn
             dir = (-dir[1], dir[0])
 
