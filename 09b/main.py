@@ -32,28 +32,40 @@ class FileSystem:
                 # insert document inside space_index
                 free_space_length = self.compacted_spaces[free_space_index]
                 if free_space_index == document_index - 1:
-                    pass
-                else:
                     # Before:
-                    # AAA       BBB   C   DDD
-                    # SSS  V    WWW  X Y  ZZZ
+                    # AAA   C   DDD
+                    # UUU  V Y  ZZZ
                     #
                     # so we found space V bigger than document C
                     # C.index = document_index
                     # V.index = free_space_index
                     #
                     # After:
-                    # AAA  C   BBB        DDD
-                    # UUU 0 X-C WWW X+C+Y ZZZ
-                    self.compacted_spaces = self.compacted_spaces[:free_space_index] + \                        # SSS
-                                            [0, free_space_length - document_length] + \                        # 0, X-C
-                                            self.compacted_spaces[free_space_index + 1:document_index - 1] + \  # WWW
-                                            [self.compacted_spaces[document_index - 1] + document_length + self.compacted_spaces[document_index]] + \
-                                            self.compacted_spaces[document_index + 1:]                          # ZZZ
-                    self.compacted_values = self.compacted_values[:free_space_index + 1] + \                # AAA
-                                            [self.compacted_values[document_index]] + \                     # C
-                                            self.compacted_values[free_space_index + 1:document_index] + \  # BBB
-                                            self.compacted_values[document_index + 1:]                      # DDD
+                    # AAA  C    DDD
+                    # UUU 0 V+Y ZZZ
+                    self.compacted_spaces[free_space_index + 1] += self.compacted_spaces[free_space_index]  # Y = V+Y
+                    self.compacted_spaces[free_space_index] = 0                                             # B = 0
+                else:
+                    # Before:
+                    # AAA       BBB   C   DDD
+                    # UUU  V    WWW  X Y  ZZZ
+                    #
+                    # so we found space V bigger than document C
+                    # C.index = document_index
+                    # V.index = free_space_index
+                    #
+                    # After:
+                    # AAA  C    BBB       DDD
+                    # UUU 0 V-C WWW X+C+Y ZZZ
+                    self.compacted_spaces = (self.compacted_spaces[:free_space_index] +                       # UUU
+                                            [0, free_space_length - document_length] +                        # 0, V-C
+                                            self.compacted_spaces[free_space_index + 1:document_index - 1] +  # WWW
+                                            [self.compacted_spaces[document_index - 1] + document_length + self.compacted_spaces[document_index]] +
+                                            self.compacted_spaces[document_index + 1:])                       # ZZZ
+                    self.compacted_values = (self.compacted_values[:free_space_index + 1] +               # AAA
+                                            [self.compacted_values[document_index]] +                     # C
+                                            self.compacted_values[free_space_index + 1:document_index] +  # BBB
+                                            self.compacted_values[document_index + 1:])                   # DDD
             else:
                 document_index -= 1
             print(f"{len(self.compacted_values) - document_index} / {len(self.compacted_values)}")
