@@ -19,12 +19,14 @@ class FileSystem:
         self.compacted_values = self.dense_values.copy()
         self.compacted_spaces = self.dense_spaces.copy()
         document_index = len(self.compacted_values) - 1
+        rightmost_nonempty_space_index = 0
+        while self.compacted_spaces[rightmost_nonempty_space_index] == 0:
+            rightmost_nonempty_space_index += 1
         while document_index > 0:
             document_length = self.compacted_values[document_index][1]
             free_space_index = None
-            for space_index, space_length in enumerate(self.compacted_spaces):
-                if space_index >= document_index:
-                    break
+            for space_index in range(rightmost_nonempty_space_index, document_index):
+                space_length = self.compacted_spaces[space_index]
                 if space_length >= document_length:
                     free_space_index = space_index
                     break
@@ -66,6 +68,8 @@ class FileSystem:
                                             [self.compacted_values[document_index]] +                     # C
                                             self.compacted_values[free_space_index + 1:document_index] +  # BBB
                                             self.compacted_values[document_index + 1:])                   # DDD
+                while self.compacted_spaces[rightmost_nonempty_space_index] == 0:
+                    rightmost_nonempty_space_index += 1
             else:
                 document_index -= 1
             print(f"{len(self.compacted_values) - document_index} / {len(self.compacted_values)}")
