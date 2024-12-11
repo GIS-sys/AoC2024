@@ -72,7 +72,8 @@ class FileSystem:
                     rightmost_nonempty_space_index += 1
             else:
                 document_index -= 1
-            print(f"{len(self.compacted_values) - document_index} / {len(self.compacted_values)}")
+            if DEBUG:
+                print(f"{len(self.compacted_values) - document_index} / {len(self.compacted_values)}")
             if DEBUG:
                 print("COMPACTED")
                 print(self.compacted_values)
