@@ -1,4 +1,4 @@
-DEBUG = True
+DEBUG = False
 
 
 def list_without(l: list, i: int) -> list:

@@ -1,7 +1,7 @@
 from typing import Optional
 
 
-DEBUG = True
+DEBUG = False
 
 
 class STATE:

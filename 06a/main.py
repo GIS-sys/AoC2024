@@ -1,4 +1,4 @@
-DEBUG = True
+DEBUG = False
 
 
 def copy(x: list[list]) -> list[list]:

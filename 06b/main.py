@@ -2,7 +2,7 @@ import time
 from typing import Optional
 
 
-DEBUG = True
+DEBUG = False
 DEBUG_CHECK_SHORTCUTS = False
 SYM_GUARD = "^"
 SYM_WALL = "#"
