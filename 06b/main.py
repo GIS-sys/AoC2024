@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 
@@ -101,10 +102,12 @@ class Solver:
         dir = (0,-1)
         if fill_path_field:
             field[y][x] = SYM_USED
-        used = [[set() for __ in range(self.width)] for _ in range(self.height)]
+        #used = [[set() for __ in range(self.width)] for _ in range(self.height)]
+        used = dict()
 
-        while x >= 0 and x < self.width and y >= 0 and y < self.height and hash(dir) not in used[y][x]:
-            used[y][x].add(hash(dir))
+        while x >= 0 and x < self.width and y >= 0 and y < self.height and hash(dir) not in used.get((y, x), set()):#used[y][x]:
+            #used[y][x].add(hash(dir))
+            used[(y, x)] = used.get((y, x), set()) | set([hash(dir)])
             if fill_path_field:
                 lastx, lasty = x, y
             x, y = self.move((x, y), dir)
