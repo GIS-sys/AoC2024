@@ -6,12 +6,27 @@ show_error() {
     exit 1
 }
 
+LONGEST="0m0.000s"
+
+# Function to run command and prettify time and output
+pretty_output() {
+    . <({ berr=$({ bout=$(bash -c "$1"); } 2>&1; declare -p bout >&2); declare -p berr; } 2>&1)
+    echo -e "TIME: $berr"
+    echo -e "RESULT: $bout"
+    echo ""
+    systime=$(echo -e "$berr" | grep "real	")
+    systime=${systime#*	}
+    if [[ $LONGEST < $systime ]]; then
+        LONGEST=$systime
+    fi
+}
+
 # Function to run a task
 run_program() {
     echo "Running ${1}a/main.py with input ${1}"
-    time cat "check/inputs/${1}" | python "${1}a/main.py"
+    pretty_output 'time cat "check/inputs/'${1}'" | python "'${1}'a/main.py"'
     echo "Running ${1}b/main.py with input ${1}"
-    time cat "check/inputs/${1}" | python "${1}b/main.py"
+    pretty_output 'time cat "check/inputs/'${1}'" | python "'${1}'b/main.py"'
 }
 
 HELP_MESSAGE="Argument must be a number between 00 and 25 inclusive (always two digits). If 0, will take each input file from check/inputs/ folder and run tasks for them. If not 0, will run specified task only."
@@ -38,3 +53,5 @@ if [ "$arg" -eq 0 ]; then
 else
     run_program "$arg"
 fi
+
+echo "Longest task execution time: $LONGEST"
