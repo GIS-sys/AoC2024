@@ -1,24 +1,13 @@
-DEBUG = False
+DEBUG = True
 
 WIDTH = 101
 HEIGHT = 103
-#WIDTH = 11
-#HEIGHT = 7
-STEPS = 100
+MAX_STEPS = 100000
 
 
 def mod(x: int, y: int) -> int:
     y = abs(y)
     return ((x % y) + y) % y
-
-
-def get_quadrant(p: tuple[int, int]) -> int:
-    if p[0] == WIDTH // 2 or p[1] == HEIGHT // 2:
-        return -1
-    qx = (p[0] * 2) // WIDTH
-    qy = (p[1] * 2) // HEIGHT
-    return qx * 2 + qy
-
 
 def split(s: str, inbetween: list[str]) -> list[str]:
     result = []
@@ -50,6 +39,28 @@ class Robot:
         return f"p={self.p} v={self.v}, predicted={self.predicted_position}"
 
 
+class Field:
+    def __init__(self, robots: list[Robot]):
+        self.robots = dict()
+        for robot in robots:
+            self.robots[robot.get_predicted_position()] = self.robots.get(robot.get_predicted_position(), []) + [robot]
+
+    def __repr__(self) -> str:
+        result = [[" " for _ in range(WIDTH)] for __ in range(HEIGHT)]
+        for pos in self.robots.keys():
+            result[pos[1]][pos[0]] = "8"
+        return "\n".join(["".join(line) for line in result])
+
+    def is_tree(self) -> bool:
+        return False
+
+    def looks_like_tree(self) -> bool:
+        for required_position in [(WIDTH // 2, 0), (WIDTH // 2 - 1, 1), (WIDTH // 2 + 1, 1)]:
+            if self.robots.get(required_position, None) is None:
+                return False
+        return True
+
+
 class Solver:
     def __init__(self):
         self.robots = []
@@ -63,16 +74,20 @@ class Solver:
             self.robots.append(Robot(p, v))
 
     def solve(self):
-        quadrants = [[] for _ in range(5)]
-        for robot in self.robots:
-            robot.predict(STEPS)
-            quadrant = get_quadrant(robot.get_predicted_position())
-            quadrants[quadrant].append(robot)
-        print(quadrants)
-        result = 1
-        for robots_in_quadrant in quadrants[:-1]:
-            result *= len(robots_in_quadrant)
-        return result
+        for step in range(MAX_STEPS):
+            for robot in self.robots:
+                robot.predict(step)
+            field = Field(self.robots)
+            if field.is_tree():
+                return step
+            if field.looks_like_tree():
+                print(step)
+                print(field)
+                input()
+            if DEBUG:
+                if (step * 10) % MAX_STEPS == 0:
+                    print(f"{step}/{MAX_STEPS}")
+        return None
 
 
 if __name__ == "__main__":
