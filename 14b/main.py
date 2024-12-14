@@ -1,4 +1,4 @@
-DEBUG = True
+DEBUG = False
 
 WIDTH = 101
 HEIGHT = 103
@@ -52,13 +52,30 @@ class Field:
         return "\n".join(["".join(line) for line in result])
 
     def is_tree(self) -> bool:
-        return False
+        return self.looks_like_tree__long_branch(10)
 
-    def looks_like_tree(self) -> bool:
+    def looks_like_tree__top_cone(self) -> bool:
         for required_position in [(WIDTH // 2, 0), (WIDTH // 2 - 1, 1), (WIDTH // 2 + 1, 1)]:
             if self.robots.get(required_position, None) is None:
                 return False
         return True
+
+    def looks_like_tree__long_branch(self, branch_length: int = 6) -> bool:
+        for pos in self.robots.keys():
+            found = True
+            for branch_iter in range(branch_length):
+                if self.robots.get((pos[0] - branch_iter, pos[1] + branch_iter), None) is None:
+                    found = False
+                    break
+            if found:
+                return True
+        return False
+
+    def looks_like_tree(self) -> bool:
+        if not DEBUG:
+            return False
+        #return self.looks_like_tree__top_cone()
+        return self.looks_like_tree__long_branch()
 
 
 class Solver:
