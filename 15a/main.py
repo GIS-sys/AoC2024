@@ -33,7 +33,7 @@ class Field:
         if command == COMMAND_DOWN:
             direction = (0, 1)
         # move
-        x, y = self.robot_pos[0] + direction[0],self.robot_pos[1] + direction[1]
+        x, y = self.robot_pos[0] + direction[0], self.robot_pos[1] + direction[1]
         while True:
             cell = self.cells[y][x]
             if cell == CELL_WALL:
