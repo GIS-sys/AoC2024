@@ -68,7 +68,8 @@ class Solver:
             robot.predict(STEPS)
             quadrant = get_quadrant(robot.get_predicted_position())
             quadrants[quadrant].append(robot)
-        print(quadrants)
+        if DEBUG:
+            print(quadrants)
         result = 1
         for robots_in_quadrant in quadrants[:-1]:
             result *= len(robots_in_quadrant)
