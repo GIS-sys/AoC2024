@@ -30,7 +30,7 @@ class Robot:
         self.v = v
 
     def predict(self, steps: int):
-        self.predicted_position = mod(self.p[0] + self.v[0] * steps, WIDTH), mod(self.p[1] + self.v[1] * steps, HEIGHT)
+        self.predicted_position = (self.p[0] + self.v[0] * steps) % WIDTH, (self.p[1] + self.v[1] * steps) % HEIGHT
 
     def get_predicted_position(self) -> tuple[int, int]:
         return self.predicted_position
@@ -53,6 +53,8 @@ class Field:
 
     def is_tree(self) -> bool:
         return self.looks_like_tree__long_branch(10)
+        #return self.looks_like_tree__square(3)
+        #return self.looks_like_tree__precise()
 
     def looks_like_tree__top_cone(self) -> bool:
         for required_position in [(WIDTH // 2, 0), (WIDTH // 2 - 1, 1), (WIDTH // 2 + 1, 1)]:
@@ -60,8 +62,28 @@ class Field:
                 return False
         return True
 
+    def looks_like_tree__precise(self) -> bool:
+        for required_position in [(WIDTH // 2 - 2, 17), (WIDTH // 2 - 1, 17), (WIDTH // 2, 17), (WIDTH // 2 + 1, 17), (WIDTH // 2 + 2, 17)]:
+            if required_position not in self.robots:
+                return False
+        return True
+
+    def looks_like_tree__square(self, side_length: int = 6) -> bool:
+        for pos in self.robots.keys():
+            found = True
+            for dxy in range(side_length * side_length):
+                next_pos = (pos[0] + (dxy // side_length), pos[1] + (dxy % side_length))
+                if next_pos not in self.robots:
+                    found = False
+                    break
+            if found:
+                return True
+        return False
+
     def looks_like_tree__long_branch(self, branch_length: int = 6) -> bool:
         for pos in self.robots.keys():
+            if pos[0] > WIDTH // 2 + branch_length or pos[0] < WIDTH // 2 - branch_length:
+                continue
             found = True
             for branch_iter in range(branch_length):
                 if self.robots.get((pos[0] - branch_iter, pos[1] + branch_iter), None) is None:
@@ -72,8 +94,6 @@ class Field:
         return False
 
     def looks_like_tree(self) -> bool:
-        if not DEBUG:
-            return False
         #return self.looks_like_tree__top_cone()
         return self.looks_like_tree__long_branch()
 
@@ -89,6 +109,7 @@ class Solver:
             p = values[0:2]
             v = values[2:4]
             self.robots.append(Robot(p, v))
+        self.robots = self.robots[:len(self.robots) * 8 // 10]
 
     def solve(self):
         for step in range(MAX_STEPS):
@@ -97,10 +118,11 @@ class Solver:
             field = Field(self.robots)
             if field.is_tree():
                 return step
-            if field.looks_like_tree():
-                print(step)
-                print(field)
-                input()
+            if DEBUG:
+                if field.looks_like_tree():
+                    print(step)
+                    print(field)
+                    input("Press any key to continue...")
             if DEBUG:
                 if (step * 10) % MAX_STEPS == 0:
                     print(f"{step}/{MAX_STEPS}")
