@@ -1,0 +1,154 @@
+from queue import PriorityQueue
+
+
+DEBUG = False
+SYMBOL_EMPTY = "."
+SYMBOL_START = "S"
+SYMBOL_END = "E"
+SYMBOL_WALL = "#"
+MAX_SCORE = 100000000000
+
+
+def rot_distance(x: int, y: int, cycle: int):
+    distance = (x - y) % cycle
+    if distance > cycle // 2:
+        distance = cycle - distance
+    return distance
+
+
+class State:
+    def __init__(self, x: int, y: int, direction: int):
+        self.x = x
+        self.y = y
+        self.direction = direction
+
+    def __hash__(self) -> int:
+        return self.x * 1000 + self.y * 4 + self.direction
+
+    def __eq__(self, oth) -> bool:
+        if isinstance(oth, State):
+            return self.x == oth.x and self.y == oth.y and self.direction == oth.direction
+
+    def __add__(self, oth):
+        if isinstance(oth, tuple):
+            if len(oth) == 2:
+                return State(self.x + oth[0], self.y + oth[1], self.direction)
+        raise NotImplementedError(f"State cannot add {type(oth)} {oth}")
+
+    def __sub__(self, oth):
+        if isinstance(oth, tuple):
+            if len(oth) == 2:
+                return self + (-oth[0], -oth[1])
+        raise NotImplementedError(f"State cannot sub {type(oth)} {oth}")
+
+    def __repr__(self) -> str:
+        return f"(x={self.x} y={self.y} direction={self.direction})"
+
+    def __lt__(self, oth):
+        if isinstance(oth, State):
+            return self.y - self.x < oth.y - oth.x
+        raise NotImplementedError(f"State cannot le {type(oth)} {oth}")
+
+
+class Maze:
+    def __init__(self, lines: list[list[str]]):
+        self.lines: list[list[str]] = []
+        self.end_states: list[State] = None
+        self.start_state: State = None
+        for y, line in enumerate(lines):
+            if SYMBOL_START in line:
+                x = line.index(SYMBOL_START)
+                self.lines.append(line[:x] + [SYMBOL_EMPTY] + line[x+1:])
+                self.start_state = State(x=x, y=y, direction=0)
+            elif SYMBOL_END in line:
+                x = line.index(SYMBOL_END)
+                self.lines.append(line[:x] + [SYMBOL_EMPTY] + line[x+1:])
+                self.end_states = [State(x=x, y=y, direction=d) for d in [0, 1, 2, 3]]
+            else:
+                self.lines.append(line.copy())
+        self.height: int = len(self.lines)
+        self.width: int = len(self.lines[0])
+        self.fastest: dict[State, int] = dict()
+
+    def calculate_fastest(self):
+        queue = PriorityQueue()
+        used = set()
+        for state in self.end_states:
+            self.fastest[state] = 0
+            queue.put((self.fastest[state], state))
+            used.add(hash(state))
+        s = queue.qsize()
+        while queue.qsize():
+            state = queue.get()[1]
+            #if hash(state) in used:
+            #    continue
+            if self.lines[state.y][state.x] == SYMBOL_WALL:
+                continue
+            if DEBUG:
+                print("calculating fastest:", state, self.fastest[state])
+            for direction_index, direction in enumerate([(1, 0), (0, 1), (-1, 0), (0, -1)]):
+                next_state = state - direction
+                if not (0 <= next_state.x < self.width and 0 <= next_state.y < self.height):
+                    continue
+                for next_direction_index in [0, 1, 2, 3]:
+                    next_state = State(next_state.x, next_state.y, next_direction_index)
+                    next_score = self.fastest[state] + 1
+                    next_score += 1000 * rot_distance(direction_index, state.direction, 4)
+                    next_score += 1000 * rot_distance(direction_index, next_direction_index, 4)
+                    self.fastest[next_state] = min(self.fastest.get(next_state, MAX_SCORE), next_score)
+                    if hash(next_state) in used:
+                        continue
+                    used.add(hash(next_state))
+                    queue.put((self.fastest[next_state], next_state))
+
+    def get_all_best_states(self) -> list[State]:
+        used = set([self.start_state])
+        bfs = [self.start_state]
+        while bfs:
+            state = bfs[0]
+            bfs.pop(0)
+            if DEBUG:
+                print(state, bfs)
+            # find all states with the best score
+            for direction_index, direction in enumerate([(1, 0), (0, 1), (-1, 0), (0, -1)]):
+                next_state = state + direction
+                next_state = State(next_state.x, next_state.y, direction_index)
+                if not next_state in self.fastest:
+                    continue
+                next_score = self.fastest[next_state] + 1 + 1000 * rot_distance(state.direction, direction_index, 4)
+                #print(self.fastest[state], state)
+                #print(self.fastest[next_state], next_state)
+                #print(direction_index, direction)
+                if next_state not in used and next_score == self.fastest[state] and self.lines[next_state.y][next_state.x] == SYMBOL_EMPTY:
+                    used.add(next_state)
+                    bfs.append(next_state)
+        if DEBUG:
+            for s in used:
+                print(s)
+        return used
+
+
+class Solver:
+    def __init__(self):
+        self.maze: Maze = None
+
+    def read(self):
+        lines = []
+        while i := input():
+            lines.append(list(i))
+        self.maze = Maze(lines)
+
+    def solve(self):
+        self.maze.calculate_fastest()
+        states = self.maze.get_all_best_states()
+        unique_states = set([State(state.x, state.y, 0) for state in states])
+        result = len(unique_states)
+        return result
+
+
+if __name__ == "__main__":
+    solver = Solver()
+    solver.read()
+    answer = solver.solve()
+    print(answer)
+
