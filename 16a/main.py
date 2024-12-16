@@ -1,4 +1,7 @@
-DEBUG = True
+from queue import PriorityQueue
+
+
+DEBUG = False
 SYMBOL_EMPTY = "."
 SYMBOL_START = "S"
 SYMBOL_END = "E"
@@ -41,6 +44,11 @@ class State:
     def __repr__(self) -> str:
         return f"(x={self.x} y={self.y} direction={self.direction})"
 
+    def __lt__(self, oth):
+        if isinstance(oth, State):
+            return self.y - self.x < oth.y - oth.x
+        raise NotImplementedError(f"State cannot le {type(oth)} {oth}")
+
 
 class Maze:
     def __init__(self, lines: list[list[str]]):
@@ -63,14 +71,17 @@ class Maze:
         self.fastest: dict[State, int] = dict()
 
     def calculate_fastest(self):
+        queue = PriorityQueue()
+        used = set()
         for state in self.end_states:
             self.fastest[state] = 0
-        queue = self.end_states.copy()
-        used = set()
-        while queue:
-            state = queue[0]
-            queue.pop(0)
+            queue.put((self.fastest[state], state))
             used.add(hash(state))
+        s = queue.qsize()
+        while queue.qsize():
+            state = queue.get()[1]
+            #if hash(state) in used:
+            #    continue
             if self.lines[state.y][state.x] == SYMBOL_WALL:
                 continue
             if DEBUG:
@@ -88,7 +99,7 @@ class Maze:
                     if hash(next_state) in used:
                         continue
                     used.add(hash(next_state))
-                    queue.append(next_state)
+                    queue.put((self.fastest[next_state], next_state))
 
 
 class Solver:
