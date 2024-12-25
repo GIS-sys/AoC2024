@@ -17,11 +17,11 @@ class Solver:
             x, y = map(int, i.split(","))
             self.corruptions.append((x, y))
 
-    def solve(self):
+    def find_path_length(self, length):
         # construct field
-        self.blocks = [[False for _ in range(self.width)] for __ in range(self.height)]
-        for x, y in self.corruptions[:LENGTH]:
-            self.blocks[y][x] = True
+        blocks = [[False for _ in range(self.width)] for __ in range(self.height)]
+        for x, y in self.corruptions[:length]:
+            blocks[y][x] = True
         # bfs
         queue = [self.start]
         parents = dict()
@@ -38,7 +38,7 @@ class Solver:
                     continue
                 if (next_x, next_y) in parents:
                     continue
-                if self.blocks[y][x]:
+                if blocks[y][x]:
                     continue
                 parents[(next_x, next_y)] = (x, y)
                 queue.append((next_x, next_y))
@@ -52,6 +52,17 @@ class Solver:
         if DEBUG:
             print(path)
         return len(path) - 1
+
+    def solve(self):
+        lu, ru = 0, len(self.corruptions)
+        while lu + 1 < ru:
+            length = (lu + ru) // 2
+            is_in_right_half = self.find_path_length(length + 1) == -1
+            if is_in_right_half:
+                ru = length
+            else:
+                lu = length
+        return self.corruptions[ru]
 
 
 if __name__ == "__main__":
