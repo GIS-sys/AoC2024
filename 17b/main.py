@@ -1,4 +1,4 @@
-import threading
+from multiprocessing import Pool
 
 
 DEBUG = True
@@ -33,7 +33,7 @@ if MOCK_INPUT:
     input = mock_input
 
 
-THREADS = 64
+PROCESSES = 32
 
 
 def xor(a, b):
@@ -91,30 +91,31 @@ class Solver:
             iter += 1
         return len(output) == len(prediction) - 1
 
-    def iterate_solution(self, index, stop_event):
-        a = index
-        while not stop_event.is_set():
+    @staticmethod
+    def iterate_solution(args):
+        self, start, step, length = args
+        a = start
+        for _ in range(length):
             self.reg[0] = a
             if self.model(self.program):
-                stop_event.set()
-                stop_event.result = a
                 return a
-            a += THREADS
-            if DEBUG and index == 0:
-                mod = 1_000_000
-                if ((a - index) // THREADS) % (mod // THREADS) == 0:
-                    print(f"{a // mod} * {mod}")
+            a += step
+        return None
 
     def solve(self):
-        stop_event = threading.Event()
-        threads = []
-        for index in range(THREADS):
-            thread = threading.Thread(target=Solver.iterate_solution, args=(self.copy(), index, stop_event,))
-            threads.append(thread)
-            thread.start()
-        for thread in threads:
-            thread.join()
-        return stop_event.result
+        ONE_STEP_LENGTH = 1_000_000
+        # iter = 10_000_000_000 // ONE_STEP_LENGTH // PROCESSES
+        iter = 16608_000_000 // ONE_STEP_LENGTH // PROCESSES
+        # iter = 0
+        while True:
+            with Pool(PROCESSES) as p:
+                results = p.map(Solver.iterate_solution, [(self.copy(), iter * ONE_STEP_LENGTH * PROCESSES + index, PROCESSES, ONE_STEP_LENGTH) for index in range(PROCESSES)])
+            for result in results:
+                if result is not None:
+                    return result
+            iter += 1
+            if DEBUG:
+                print(f"{iter * PROCESSES} * {ONE_STEP_LENGTH}")
 
     def copy(self):
         result = Solver()
