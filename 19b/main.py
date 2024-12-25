@@ -13,8 +13,8 @@ class Solver:
         while i := input():
             self.designs.append(i)
 
-    def check(self, design):
-        dp = [False for _ in design] + [True]
+    def count(self, design):
+        dp = [0 for _ in design] + [1]
         for i in range(len(design) - 1, -1, -1):
             for towel in self.towels:
                 if len(towel) > len(design) - i:
@@ -23,16 +23,14 @@ class Solver:
                     continue
                 if design[i:i + len(towel)] != towel:
                     continue
-                dp[i] = True
-                break
+                dp[i] += dp[i + len(towel)]
         return dp[0]
 
     def solve(self):
         result = 0
         for design in self.designs:
-            correct = self.check(design)
-            if correct:
-                result += 1
+            amount = self.count(design)
+            result += amount
         return result
 
 
