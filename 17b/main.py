@@ -1,4 +1,4 @@
-DEBUG = False
+DEBUG = True
 DEBUG_MAX_ITER = 100000
 
 
@@ -47,39 +47,55 @@ class Solver:
         self.program = self.program[self.program.index(": ") + 2:].split(",")
         self.program = list(map(int, self.program)) + [None]
 
-    def solve(self):
+    def model(self, prediction: list[int]):
         output = []
         ip = 0
         iter = 0
-        while ip < len(self.program) - 1 and iter < DEBUG_MAX_ITER:
-            op = self.program[ip]
-            literal = self.program[ip + 1]
+        program = self.program.copy()
+        reg = self.reg.copy()
+        while ip < len(program) - 1 and iter < DEBUG_MAX_ITER:
+            op = program[ip]
+            literal = program[ip + 1]
             # parse combo
-            combo = ([0,1,2,3] + self.reg + [None])[literal]
+            combo = ([0,1,2,3] + reg + [None])[literal]
             # parse op
             if op == 0:
-                self.reg[0] = self.reg[0] // 2**combo
+                reg[0] = reg[0] // 2**combo
             elif op == 1:
-                self.reg[1] = xor(self.reg[1], literal)
+                reg[1] = xor(reg[1], literal)
             elif op == 2:
-                self.reg[1] = combo % 8
+                reg[1] = combo % 8
             elif op == 3:
-                if self.reg[0] != 0:
+                if reg[0] != 0:
                     ip = literal - 2
             elif op == 4:
-                self.reg[1] = xor(self.reg[1], self.reg[2])
+                reg[1] = xor(reg[1], reg[2])
             elif op == 5:
                 output.append(combo % 8)
+                if len(output) > len(prediction) or output[-1] != prediction[len(output) - 1]:
+                    return False
             elif op == 6:
-                self.reg[1] = self.reg[0] // 2**combo
+                reg[1] = reg[0] // 2**combo
             elif op == 7:
-                self.reg[2] = self.reg[0] // 2**combo
-            if DEBUG:
-                print(f"{ip}: {op} <- {literal} ({combo})  {self.reg} {output}")
+                reg[2] = reg[0] // 2**combo
+            # if DEBUG:
+            #     print(f"{ip}: {op} <- {literal} ({combo})  {reg} {output}")
             # next
             ip += 2
             iter += 1
-        return ",".join(map(str, output))
+        return len(output) == len(prediction) - 1
+
+    def solve(self):
+        a = 1
+        while True:
+            self.reg[0] = a
+            if self.model(self.program):
+                return a
+            a += 1
+            if DEBUG:
+                mod = 1_000_000
+                if a % mod == 0:
+                    print(f"{a // mod} * {mod}")
 
 
 if __name__ == "__main__":
