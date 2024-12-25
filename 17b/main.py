@@ -1,3 +1,6 @@
+import threading
+
+
 DEBUG = True
 DEBUG_MAX_ITER = 100000
 
@@ -28,6 +31,9 @@ def mock_input():
  return lines[MI - 1]
 if MOCK_INPUT:
     input = mock_input
+
+
+THREADS = 64
 
 
 def xor(a, b):
@@ -85,17 +91,36 @@ class Solver:
             iter += 1
         return len(output) == len(prediction) - 1
 
-    def solve(self):
-        a = 1
-        while True:
+    def iterate_solution(self, index, stop_event):
+        a = index
+        while not stop_event.is_set():
             self.reg[0] = a
             if self.model(self.program):
+                stop_event.set()
+                stop_event.result = a
                 return a
-            a += 1
-            if DEBUG:
+            a += THREADS
+            if DEBUG and index == 0:
                 mod = 1_000_000
-                if a % mod == 0:
+                if ((a - index) // THREADS) % (mod // THREADS) == 0:
                     print(f"{a // mod} * {mod}")
+
+    def solve(self):
+        stop_event = threading.Event()
+        threads = []
+        for index in range(THREADS):
+            thread = threading.Thread(target=Solver.iterate_solution, args=(self.copy(), index, stop_event,))
+            threads.append(thread)
+            thread.start()
+        for thread in threads:
+            thread.join()
+        return stop_event.result
+
+    def copy(self):
+        result = Solver()
+        result.reg = self.reg.copy()
+        result.program = self.program.copy()
+        return result
 
 
 if __name__ == "__main__":
