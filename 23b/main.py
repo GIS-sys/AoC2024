@@ -48,24 +48,19 @@ class Solver:
             print(len(cliques), len(element_from_set(cliques)))
             new_cliques: set[tuple] = set()
             for c1 in tqdm(cliques):
-                for c2 in cliques:
-                    if c1 == c2:
+                for new_element in edges.keys():
+                    if new_element in c1:
                         continue
                     if DEBUG:
-                        print(c1, c2)
-                    c1 = set(c1)
-                    c2 = set(c2)
-                    if len(c1 | c2) != len(c1) + 1:
-                        continue
-                    new_element_from_c2 = element_from_set(c2 - c1)
+                        print(c1, new_element)
                     found_unconnected = False
                     for element_from_c1 in c1:
-                        if new_element_from_c2 not in edges[element_from_c1]:
+                        if new_element not in edges[element_from_c1]:
                             found_unconnected = True
                             break
                     if found_unconnected:
                         continue
-                    new_cliques.add(tuple(sorted(list(c1 | c2))))
+                    new_cliques.add(tuple(sorted(list(c1) + [new_element])))
             if len(new_cliques) == 0:
                 break
             cliques = new_cliques
