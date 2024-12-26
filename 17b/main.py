@@ -1,7 +1,7 @@
 from multiprocessing import Pool
 
 
-DEBUG = True
+DEBUG = False
 DEBUG_MAX_ITER = 100000
 
 
