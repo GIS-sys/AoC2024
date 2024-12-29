@@ -2,7 +2,7 @@ import random
 
 
 DEBUG = True
-BAD_ATLEAST = 100000
+BAD_ATLEAST = 10000
 GOOD_ATLEAST = 1
 
 
@@ -21,6 +21,9 @@ class ComputeVertice:
         self.name = name
         self.value = None
 
+    def __repr__(self) -> str:
+        return f"({self.name})"
+
 
 class ComputeEdge:
     def __init__(self, in0: ComputeVertice, in1: ComputeVertice, out: ComputeVertice, operation: str):
@@ -36,6 +39,9 @@ class ComputeEdge:
             return self.in0.value & self.in1.value
         if self.operation == "XOR":
             return self.in0.value ^ self.in1.value
+
+    def __repr__(self) -> str:
+        return f"CE({self.in0} {self.operation} {self.in1} = {self.out})"
 
 
 class ComputeGraph:
@@ -79,9 +85,32 @@ class ComputeGraph:
             result += v * 2**i
         return result
 
-    def get_edges_reaching_only(bad_wires: list[str]) -> list[ComputeEdge]:
-        # TODO
-        pass
+    def get_wires_reaching_only(self, bad_wires: list[str]) -> list[str]:
+        wire_results: dicts[str, bool] = dict()
+        for v in self.vertices.values():
+            stack = [(v, 0)]
+            stack_value = None
+            while stack:
+                v, index = stack[-1]
+                stack.pop()
+                # print(v, index, wire_results, stack, stack_value)
+                if index != 0:
+                    wire_results[v.name] = wire_results.get(v.name, True) & stack_value
+                if wire_results.get(v.name, None) is not None:
+                    stack_value = wire_results[v.name]
+                    continue
+                if v.name not in self.output:
+                    wire_results[v.name] = (v.name in bad_wires)
+                    stack_value = wire_results[v.name]
+                    # print("get_wires_reaching_only fin", v.name)
+                    continue
+                if index >= len(self.output[v.name]):
+                    stack_value = wire_results[v.name]
+                    # print("get_wires_reaching_only reg", v.name)
+                    continue
+                stack.append((v, index + 1))
+                stack.append((self.output[v.name][index].out, 0))
+        return [wire for wire in wire_results if wire_results[wire]]
 
     def get_sorted_starting_with(self, symbol: str) -> list[int]:
         if not self.all_values:
@@ -145,10 +174,14 @@ class Solver:
             print(len(bad_bits), bad_bits)
         # trace them to find all gates where only those who use only these bits
         foo_format = lambda x: "z" + ("00" + str(x))[-2:]
-        edges = graph.get_edges_reaching_only([foo_format(b) for b in bad_bits])
+        potentially_bad_wires = graph.get_wires_reaching_only([foo_format(b) for b in bad_bits])
+        if DEBUG:
+            print("potentially bad wires:")
+            print(len(potentially_bad_wires), potentially_bad_wires)
+        potentially_bad_edges = set(graph.input.get(wire, None) for wire in potentially_bad_wires) - set([None])
         if DEBUG:
             print("potentially bad edges:")
-            print(len(edges), edges)
+            print(len(potentially_bad_edges), potentially_bad_edges)
         # TODO
         #if DEBUG:
         #    print(good_runs)
