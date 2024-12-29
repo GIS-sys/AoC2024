@@ -1,7 +1,7 @@
 # By analazing the program it looks like it's a single big cycle, which transforms
-# a    a           a               a               a                           a//(2**3)                   a//2^3
+# a    a           a               a               a                           a//(2**3)                   a//(2**3)
 # b -> a%(2**3) -> (a%(2**3))^3 -> (a%(2**3))^3 -> (a%(2**3))^3^(a//(2**B)) -> (a%(2**3))^3^(a//(2**B)) -> (a%(2**3))^3^5^(a//(2**((a%(2**3))^3)))
-# c    c           c               a//(2**B)       a//(2**B)                   a//(2**B)                   a//2^B
+# c    c           c               a//(2**B)       a//(2**B)                   a//(2**B)                   a//(2**B)
 # and then outputs register b. In other words, if a = ak....a7a6a5a4a3a2a1a0, then program transforms
 # a      ak...a5a3
 # ... -> a2a1a0 ^ am+2am+1am ^ 110
@@ -12,8 +12,17 @@
 # so we only need to create dependencies and then iterate over free elements
 
 
-DEBUG = True
-#MAX_NUMBER = 1_000_000_000_000_000
+#0, 0, 0, 0, 0, 1 (reversed)
+# 100000  100000  100000  100000  100000  100  100
+# 0       000     011     011     111     111  010 = 2
+# 0       0       0       100     100     100  100
+#0, 0, 1, None, None, None, None, 0, 0, 0 (reversed)
+# 000????100  000????100  000????100  000????100  000????100  000????  000????
+# 0           100         111         111         111         111      010 = 2
+# 0           0           0           000         000         000      000
+
+
+DEBUG = False
 
 
 def dec_to_bin(x: int, length: int = None) -> list[int]:
@@ -23,10 +32,10 @@ def dec_to_bin(x: int, length: int = None) -> list[int]:
         result.append(r)
     if length:
         result = result + [0] * (length - len(result))
-    return result[::-1]
+    return result
 
 
-def bin_to_dec(x: list[int], length: int = None) -> int:
+def bin_to_dec(x: list[int]) -> int:
     result = 0
     for i, bit in enumerate(x):
         result += bit * 2**i
@@ -45,30 +54,76 @@ CONST_XOR2 = dec_to_bin(5, BIT_SHIFT)
 
 
 class BitsOption:
-    def __init__(self, option: list[int], value: list[int]):
-        self.option = option
+    def __init__(self, value: list[int]):
+        #self.index = index
         self.value = value
 
     def __repr__(self) -> str:
-        return f"{self.option}<->{self.value}"
+        return f">{self.value}<"
+
+    def copy(self):
+        return BitsOption(self.value.copy())
 
 
 class Options:
     def __init__(self):
-        pass
+        self.bits = [BitsOption([0]), BitsOption([1])]
 
     def get_bits(self, index_from: int, index_to: int) -> list[BitsOption]:
-        # return all possible bits for 
-        return [BitsOption([0] * (index_to - index_from), [0] * (index_to - index_from)) for _ in range(2)]  # TODO
-
-    def add_dependencies(self, bias: list[BitsOption], values: list[int], current_iter_bit: int):
-        # set dependency for bits starting from bias[i] to bias[i+BIT_SHIFT], setting them to (a[current_iter_bit:current_iter_bit+BIT_SHIFT] + values)
+        # return all possible bit options
         if DEBUG:
-            print(bias, values, current_iter_bit)
-       pass  # TODO
+            print("get_bits")
+            print(self.bits)
+        for i in range(index_from, index_to):
+            new_bits = []
+            for bit in self.bits:
+                if len(bit.value) < i + 1 or bit.value[i] is None:
+                    while len(bit.value) < i + 1:
+                        bit.value.append(None)
+                    new_bits.append(bit.copy())
+                    new_bits.append(bit.copy())
+                    new_bits[-2].value[i] = 0
+                    new_bits[-1].value[i] = 1
+                else:
+                    new_bits.append(bit.copy())
+            self.bits = new_bits
+        return [b.copy() for b in self.bits]
 
-   def get_min(self) -> int:
-       return -1  # TODO
+    def add_dependencies(self, bias_list: list[BitsOption], value_list: list[int], current_iter_bit: int):
+        # set dependency for bits starting from bias[i] to bias[i+BIT_SHIFT], setting them to (a[current_iter_bit:current_iter_bit+BIT_SHIFT] + values)
+        bias_list = [bin_to_dec(b.value) for b in bias_list]
+        if DEBUG:
+            print("add dependencies")
+            print(len(self.bits), self.bits)
+            print(f"{bias_list=}")
+            print(f"{value_list=} {current_iter_bit=}")
+        assert(len(bias_list) == len(self.bits))
+        # predict
+        new_bits = []
+        for i, (bias, bit) in enumerate(zip(bias_list, self.bits)):
+            bit = bit.copy()
+            new_bits.append(bit)
+            for value_index, value in enumerate(value_list):
+                # predicted value
+                new_value = bit.value[current_iter_bit + value_index]
+                if value:
+                    new_value = 1 - new_value
+                # index of predicted value
+                new_index = current_iter_bit + value_index + bias
+                # pad
+                while len(bit.value) < new_index + 1:
+                    bit.value.append(None)
+                # check conflict
+                if bit.value[new_index] == 1 - new_value:
+                    new_bits.pop()
+                    break
+                bit.value[new_index] = new_value
+        self.bits = new_bits
+        if DEBUG:
+            print(len(self.bits), self.bits)
+
+    def get_numbers(self) -> int:
+       return [bin_to_dec([z if z is not None else 0 for z in x.value]) for x in self.bits]
 
 
 class Solver:
@@ -88,51 +143,15 @@ class Solver:
             iter_bit = BIT_SHIFT * iter_raw
             bias = options.get_bits(iter_bit, iter_bit + BIT_SHIFT)
             for a in bias:
-                a.value = xor(a.value, CONST_XOR1)
-            options.add_dependencies(bias, xor(xor(CONST_XOR1, CONST_XOR2), dec_to_bin(out, BIT_SHIFT)), iter_bit)
-        return options.get_min()
-
-
-        ## find dependencies based on output
-        #dependencies: dict[int, tuple[int, bool]] = dict() # dependencies[x] = (y, a) <=> bit X is equal to bit Y (reversed if a==True)
-        #for iter, out in enumerate(self.program):
-        #    out_bin = dec_to_bin(out, self.bits_read_a)
-        #    bits_bias = out
-        #    for i, (out_bit, const_bit) in enumerate(zip(out_bin, self.bits_const)):
-        #        dependencies[iter * self.bits_read_a + i + self.bits_bias_a] = (iter * self.bits_read_a + i, out_bit == const_bit)
-        ## find free bits
-        #free_bits_indexes = []
-        #for index in range(max(dependencies.keys())):
-        #    if index not in dependencies:
-        #        free_bits_indexes.append(index)
-        ## generate numbers using free bits and dependencies
-        #min_number = MAX_NUMBER
-        #for step in range(2**len(free_bits_indexes)):
-        #    free_bits = dec_to_bin(step, len(free_bits_indexes))
-        #    number: dict[int, int] = dict()
-        #    print(free_bits_indexes, free_bits)
-        #    print(number)
-        #    print(dependencies)
-        #    for bit, index in zip(free_bits, free_bits_indexes):
-        #        number[index] = bit
-        #    for next_index in sorted(dependencies.keys()):
-        #        prev_index, reverse = dependencies[next_index]
-        #        next_number = number[prev_index]
-        #        if reverse:
-        #            next_number = 1 - next_number
-        #        number[next_index] = next_number
-        #    number_dec = 0
-        #    for index, bit in number.items():
-        #        number_dec += bit * 2**index
-        #    print(number_dec)
-        #    min_number = min(min_number, number_dec)
-        #return min_number
-
-    #def copy(self):
-    #    result = Solver()
-    #    result.reg = self.reg.copy()
-    #    result.program = self.program.copy()
-    #    return result
+                a.value = xor(a.value[iter_bit:iter_bit+3], CONST_XOR1)
+            values_to_conform = xor(xor(CONST_XOR1, CONST_XOR2), dec_to_bin(out, BIT_SHIFT))
+            options.add_dependencies(bias, values_to_conform, iter_bit)
+        result = options.get_numbers()
+        if DEBUG:
+            print("Numbers:")
+            print(result)
+        result = min(result)
+        return result
 
 
 if __name__ == "__main__":
