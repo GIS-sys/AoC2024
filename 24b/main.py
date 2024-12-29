@@ -85,22 +85,24 @@ class ComputeGraph:
             result += v * 2**i
         return result
 
-    def iterate_over_tree(self, return_callback, raw_callback):
+    def iterate_over_tree(self, return_callback, raw_callback, allow_bfs_from_start_callback):
         wire_results = dict()
-        for v in self.vertices.values():
-            stack = [(v, 0)]
+        for starting_v in self.vertices.values():
+            if not allow_bfs_from_start_callback(starting_v):
+                continue
+            stack = [(starting_v, 0)]
             stack_value = None
             while stack:
                 v, index = stack[-1]
                 stack.pop()
                 # print(v, index, stack_value, self.output.get(v.name, None))
                 if index != 0:
-                    wire_results[v.name] = return_callback(v, wire_results, stack_value)
+                    wire_results[v.name] = return_callback(v, wire_results, starting_v, stack_value)
                 elif wire_results.get(v.name, None) is not None:
                     stack_value = wire_results[v.name]
                     continue
                 if v.name not in self.output:
-                    wire_results[v.name] = raw_callback(v, wire_results)
+                    wire_results[v.name] = raw_callback(v, wire_results, starting_v)
                     stack_value = wire_results[v.name]
                     continue
                 if index >= len(self.output[v.name]):
@@ -112,15 +114,26 @@ class ComputeGraph:
 
     def get_wires_reaching_only(self, bad_wires: list[str]) -> list[str]:
         wire_results = self.iterate_over_tree(
-            lambda v, wire_results, stack_value: wire_results.get(v.name, True) & stack_value,
-            lambda v, wire_results: v.name in bad_wires,
+            lambda v, wire_results, starting_v, stack_value: wire_results.get(v.name, True) & stack_value,
+            lambda v, wire_results, starting_v: v.name in bad_wires,
+            lambda starting_v: starting_v.name.startswith(("x", "y"))
         )
         return [wire for wire in wire_results if wire_results[wire]]
 
     def get_wires_influencing_wires(self, wires: list[str]) -> list[str]:
         wire_results = self.iterate_over_tree(
-            lambda v, wire_results, stack_value: wire_results.get(v.name, False) | stack_value,
-            lambda v, wire_results: v.name in wires,
+            lambda v, wire_results, starting_v, stack_value: wire_results.get(v.name, False) | stack_value,
+            lambda v, wire_results, starting_v: v.name in wires,
+            lambda starting_v: starting_v.name.startswith(("x", "y"))
+        )
+        # print(wires, wire_results, "\n\n")
+        return [wire for wire in wire_results if wire_results[wire]]
+
+    def get_wires_connecting_xyz_same_index(self, wires: list[str]) -> list[str]:
+        wire_results = self.iterate_over_tree(
+            lambda v, wire_results, starting_v, stack_value: wire_results.get(v.name, False) | stack_value,
+            lambda v, wire_results, starting_v: starting_v.name in wires and v.name.startswith("z") and int(v.name[1:]) == int(starting_v.name[1:]), # < instead of == doesnt help
+            lambda starting_v: starting_v.name in wires,
         )
         # print(wires, wire_results, "\n\n")
         return [wire for wire in wire_results if wire_results[wire]]
@@ -188,7 +201,7 @@ class Solver:
 
         # use differen criteria to find potentially bad wires and edges
         # 1. find only those which may influence only bad bits
-        foo_format = lambda x: "z" + ("00" + str(x))[-2:]
+        foo_format = lambda x, s="z": s + ("00" + str(x))[-2:]
         wires_only_bad_bits = graph.get_wires_reaching_only([foo_format(b) for b in bad_bits])
         if DEBUG:
             print("wires leading only to bad bits:")
@@ -215,7 +228,18 @@ class Solver:
             # print("\n".join([str(w) for w in edges_influencing_bits]))
 
         # 3. find those which carry influence from x/y with bigger index to z with smaller index
-        TODO
+        wires_same_index = []
+        for bit in bad_bits:
+            wires_same_index.append(graph.get_wires_connecting_xyz_same_index([foo_format(bit, "x"), foo_format(bit, "y")]))
+        if DEBUG:
+            print("wires connecting bigger x/y to same z:")
+            print([len(x) for x in wires_same_index])
+            # print("\n".join([str(w) for w in wires_same_index]))
+        edges_same_index = [set(graph.input.get(wire, None) for wire in wire_complect) - set([None]) for wire_complect in wires_same_index]
+        if DEBUG:
+            print("edges connecting bigger x/y to same z:")
+            print([len(x) for x in edges_same_index])
+            print("\n".join([str(w) for w in edges_same_index]))
 
         # TODO
         # intersect edge influencers with edges leading only to bad bits
