@@ -84,7 +84,7 @@ class ComputeGraph:
         for i, v in enumerate(z_values):
             result += v * 2**i
         return result
-
+ 
     def iterate_over_tree(self, return_callback, raw_callback):
         wire_results = dict()
         for v in self.vertices.values():
@@ -93,10 +93,9 @@ class ComputeGraph:
             while stack:
                 v, index = stack[-1]
                 stack.pop()
-                # print(v, index, stack_value, self.output.get(v.name, None))
                 if index != 0:
                     wire_results[v.name] = return_callback(v, wire_results, stack_value)
-                elif wire_results.get(v.name, None) is not None:
+                if wire_results.get(v.name, None) is not None:
                     stack_value = wire_results[v.name]
                     continue
                 if v.name not in self.output:
@@ -122,7 +121,6 @@ class ComputeGraph:
             lambda v, wire_results, stack_value: wire_results.get(v.name, False) | stack_value,
             lambda v, wire_results: v.name in wires,
         )
-        # print(wires, wire_results, "\n\n")
         return [wire for wire in wire_results if wire_results[wire]]
 
     def get_sorted_starting_with(self, symbol: str) -> list[int]:
@@ -185,44 +183,24 @@ class Solver:
         if DEBUG:
             print("bad bit indexes:")
             print(len(bad_bits), bad_bits)
-
-        # use differen criteria to find potentially bad wires and edges
-        # 1. find only those which may influence only bad bits
+        # trace them to find all gates where only those who use only these bits
         foo_format = lambda x: "z" + ("00" + str(x))[-2:]
-        wires_only_bad_bits = graph.get_wires_reaching_only([foo_format(b) for b in bad_bits])
+        potentially_bad_wires = graph.get_wires_reaching_only([foo_format(b) for b in bad_bits])
         if DEBUG:
-            print("wires leading only to bad bits:")
-            print(len(wires_only_bad_bits))
-            # print(wires_only_bad_bits)
-        edges_only_bad_bits = set(graph.input.get(wire, None) for wire in wires_only_bad_bits) - set([None])
+            print("potentially bad wires:")
+            print(len(potentially_bad_wires), potentially_bad_wires)
+        potentially_bad_edges = set(graph.input.get(wire, None) for wire in potentially_bad_wires) - set([None])
         if DEBUG:
-            print("edges leading only to bad bits:")
-            print(len(edges_only_bad_bits))
-            # print(edges_only_bad_bits)
+            print("potentially bad edges:")
+            print(len(potentially_bad_edges), potentially_bad_edges)
 
-        # 2. for every bad bit find those which can influence it
-        wires_influencing_bits = []
+        # TODO Add checking which edges and wires connect to each of bits, and then try to find 4 pairs such that we can fix them
+        wires_influencing_wires = []
         for bit in bad_bits:
-            wires_influencing_bits.append(graph.get_wires_influencing_wires([foo_format(bit)]))
+            wires_influencing_wires.append(graph.get_wires_influencing_wires([foo_format(bit)]))
         if DEBUG:
-            print("wires leading to specific bad bit:")
-            print([len(x) for x in wires_influencing_bits])
-            # print("\n".join([str(w) for w in wires_influencing_bits]))
-        edges_influencing_bits = [set(graph.input.get(wire, None) for wire in wire_complect) - set([None]) for wire_complect in wires_influencing_bits]
-        if DEBUG:
-            print("edges leading to specific bad bit:")
-            print([len(x) for x in edges_influencing_bits])
-            # print("\n".join([str(w) for w in edges_influencing_bits]))
-
-        # 3. find those which carry influence from x/y with bigger index to z with smaller index
-        TODO
-
-        # TODO
-        # intersect edge influencers with edges leading only to bad bits
-        edges_to_check = [a & potentially_bad_edges for a in edges_influencing_bits]
-        if DEBUG:
-            print("edges with both criteria:")
-            print([len(x) for x in edges_to_check])
+            print(wires_influencing_wires)
+            print([len(x) for x in wires_influencing_wires])
 
         # TODO
         #if DEBUG:
