@@ -2,8 +2,18 @@ import random
 
 
 DEBUG = True
-BAD_ATLEAST = 10
-GOOD_ATLEAST = 10
+BAD_ATLEAST = 100000
+GOOD_ATLEAST = 1
+
+
+def dec_to_bin(x: int, length: int = None) -> list[int]:
+    result = []
+    while x:
+        r, x = x % 2, x // 2
+        result.append(r)
+    if length:
+        result = result + [0] * (length - len(result))
+    return result
 
 
 class ComputeVertice:
@@ -30,6 +40,7 @@ class ComputeEdge:
 
 class ComputeGraph:
     def __init__(self, edges: list[tuple[str, str, str, str]]):
+        self.all_values: list[tuple[str, int]] = []
         self.vertices: dict[str, ComputeVertice] = {}
         self.output: dict[str, list[ComputeEdge]] = {}
         self.input: dict[str, ComputeEdge] = {}
@@ -56,16 +67,26 @@ class ComputeGraph:
             v.value = None
         for name, value in initial_values:
             self.push(name, value)
-        return [(v.name, v.value) for v in self.vertices.values()]
+        self.all_values = [(v.name, v.value) for v in self.vertices.values()]
+        self.all_values.sort()
+        return self.all_values
 
     def run_get_number(self, initial_values: list[tuple[str, int]]) -> int:
-        all_values = self.run(initial_values)
-        all_values.sort()
-        z_values = [v[1] for v in all_values if v[0].startswith("z")]
+        self.run(initial_values)
+        z_values = self.get_sorted_starting_with("z")
         result = 0
         for i, v in enumerate(z_values):
             result += v * 2**i
         return result
+
+    def get_edges_reaching_only(bad_wires: list[str]) -> list[ComputeEdge]:
+        # TODO
+        pass
+
+    def get_sorted_starting_with(self, symbol: str) -> list[int]:
+        if not self.all_values:
+            return []
+        return [v[1] for v in self.all_values if v[0].startswith(symbol)]
 
 
 class Solver:
@@ -101,18 +122,43 @@ class Solver:
     def solve(self):
         graph = ComputeGraph(self.edges)
         # generate bad and good arithmetic examples
-        bad_initial_values = []
-        good_initial_values = []
-        while len(bad_initial_values) < BAD_ATLEAST or len(good_initial_values) < GOOD_ATLEAST:
+        bad_runs = []
+        good_runs = []
+        while len(bad_runs) < BAD_ATLEAST or len(good_runs) < GOOD_ATLEAST:
             random_initial_values, random_answer = self.generate_random_test()
             result = graph.run_get_number(random_initial_values)
+
+            rx, ry, rz = graph.get_sorted_starting_with("x"), graph.get_sorted_starting_with("y"), graph.get_sorted_starting_with("z")
+            run_result = (random_initial_values, rx, ry, rz, dec_to_bin(random_answer, len(rz)))
             if random_answer == result:
-                good_initial_values.append(random_initial_values)
+                good_runs.append(run_result)
             else:
-                bad_initial_values.append(random_initial_values)
+                bad_runs.append(run_result)
+        # find out which bits are bad
+        bad_bits = set()
+        for run_result in bad_runs:
+            for i, (bit_predicted, bit_true) in enumerate(zip(run_result[-2], run_result[-1])):
+                if bit_true != bit_predicted:
+                    bad_bits.add(i)
         if DEBUG:
-            print(good_initial_values)
-            print(bad_initial_values)
+            print("bad bit indexes:")
+            print(len(bad_bits), bad_bits)
+        # trace them to find all gates where only those who use only these bits
+        foo_format = lambda x: "z" + ("00" + str(x))[-2:]
+        edges = graph.get_edges_reaching_only([foo_format(b) for b in bad_bits])
+        if DEBUG:
+            print("potentially bad edges:")
+            print(len(edges), edges)
+        # TODO
+        #if DEBUG:
+        #    print(good_runs)
+        #    print(bad_runs)
+        #print(bad_runs[4])
+        #graph.run_get_number(bad_runs[4][0])
+        #print(graph.get_sorted_starting_with("x"))
+        #print(graph.get_sorted_starting_with("y"))
+        #print(graph.get_sorted_starting_with("z"))
+        # TODO
         # try to fix
         # backpropogate?
         return result
