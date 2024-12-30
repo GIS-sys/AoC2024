@@ -1,4 +1,5 @@
 import random
+from typing import Union
 
 
 DEBUG = True
@@ -40,9 +41,15 @@ class ComputeEdge:
         if self.operation == "XOR":
             return self.in0.value ^ self.in1.value
 
+    def ins(self) -> tuple[ComputeVertice, ComputeVertice]:
+        return (self.in0, self.in1)
+
     def __repr__(self) -> str:
         return f"CE({self.in0} {self.operation} {self.in1} = {self.out})"
 
+
+class EdgeLocationException(Exception):
+    pass
 
 class ComputeGraph:
     def __init__(self, edges: list[tuple[str, str, str, str]]):
@@ -90,6 +97,23 @@ class ComputeGraph:
             return []
         return [v[1] for v in self.all_values if v[0].startswith(symbol)]
 
+    def locate_edge(self, ins: Union[str, tuple[str, str], tuple[ComputeVertice, ComputeVertice]], operation: str) -> ComputeEdge:
+        main_in = ""
+        secondary_in = ""
+        if isinstance(ins, tuple):
+            if isinstance(ins[0], ComputeVertice):
+                main_in, secondary_in = ins[0].name, ins[1].name
+            else:
+                main_in, secondary_in = ins
+        else:
+            main_in, secondary_in = ins, None
+        if main_in not in self.output:
+            raise EdgeLocationException()
+        for edge in self.output[main_in]:
+            if edge.operation == operation and (secondary_in is None or edge.in0.name == secondary_in or edge.in1.name == secondary_in):
+                return edge
+        raise EdgeLocationException()
+
 
 class Solver:
     def __init__(self):
@@ -123,6 +147,19 @@ class Solver:
 
     def solve(self):
         graph = ComputeGraph(self.edges)
+        for z_vert_name in sorted([v for v in graph.vertices if v.startswith("z")])[1:]:
+            x_vert_name, y_vert_name = "x"+z_vert_name[1:], "y"+z_vert_name[1:]
+            # find edges to wires: base_xor, base_and, prev_xor_xor, prev_xor_and, next_or
+            try:
+                base_xor_edge = graph.locate_edge((x_vert_name, y_vert_name), "XOR")
+                base_and_edge = graph.locate_edge((x_vert_name, y_vert_name), "AND")
+                prev_xor_xor_edge = graph.locate_edge(base_xor_edge.out.name, "XOR")
+                prev_xor_and_edge = graph.locate_edge(prev_xor_xor_edge.ins(), "AND")
+                next_or_edge = graph.locate_edge((base_and_edge.out.name, prev_xor_and_edge.out.name), "OR")
+                # TODO add more checks to ensure edges are correct, and add variable to store all edge and check if they repeat
+            except EdgeLocationException:
+                print(z_vert_name)
+                continue
         result = 0
         return result
 
