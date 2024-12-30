@@ -9,3 +9,9 @@ For easy testing put all your inputs inside of the directory `check/inputs/` in 
 check/run.sh 00
 ```
 to run all the tasks with your inputs. Make sure every input file ends with a new line!
+
+# TODO
+
+Complete 24b, 25b
+
+Improve speed of 20b, 22b, 23b
