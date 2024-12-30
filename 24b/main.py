@@ -17,12 +17,12 @@ f  z.. != PREV_XOR_XOR: self.values=[('1', 'z35')], self.wire='z35'
 
 
 import random
-from typing import Any, Union
+from typing import Any, Self, Union
 
 
 DEBUG = True
 DEBUG_PRINT_CHECK_FALSE = True
-DEBUG_PRINT_CHECK_TRUE = False
+DEBUG_PRINT_CHECK_TRUE = True
 BAD_ATLEAST = 10000
 GOOD_ATLEAST = 1
 
@@ -142,47 +142,58 @@ class WireTypeData:
     PREV_XOR_AND = "3"
     NEXT_OR = "4"
 
-    def __init__(self, wire: str):
+    def __init__(self, edge: ComputeEdge):
         self.values = []
-        self.wire = wire
+        self.edge = edge
 
     def set(self, kind: str, z_vert_name: str):
         self.values.append((kind, z_vert_name))
 
-    def check(self) -> bool:
+    def check(self, wtds: dict[str, Self], graph: ComputeGraph) -> tuple[bool, str]:
         # TODO may be a problem if locate_edge can return several, then we may incorrectly assign all system
-        # TODO check z_vert_name
-        if self.wire.startswith(("x", "y")):
-            return True
+        if self.edge is None or self.edge.out.name.startswith(("x", "y")):
+            return True, "t  x/y"
         if len(self.values) != 1:
-            if DEBUG and DEBUG_PRINT_CHECK_FALSE:
-                print(f"f  len(self.values) != 1: {self}")
-            return False
+            return False, f"f  len(self.values) != 1: {self}"
         kind, z_vert_name = self.values[0]
+        z_index = int(z_vert_name[1:])
         # prev xor xor must have out=z, and vice versa
-        if self.wire.startswith("z") != (kind == WireTypeData.PREV_XOR_XOR):
-            if DEBUG and DEBUG_PRINT_CHECK_FALSE:
-                print(f"f  z.. != PREV_XOR_XOR: {self}")
-            return False
+        if self.edge.out.name.startswith("z") != (kind == WireTypeData.PREV_XOR_XOR):
+            return False, f"f  z.. != PREV_XOR_XOR: {self}"
+        if self.edge.out.name.startswith("z") and self.edge.out.name[1:] != z_vert_name[1:]:
+            return False, f"f  z.. is for a wrong (x, y): {self}"
         # base xor and and are always correct
         if kind == WireTypeData.BASE_XOR or kind == WireTypeData.BASE_AND:
-            if DEBUG and DEBUG_PRINT_CHECK_TRUE:
-                print(f"t  BASE_XOR or BASE_AND: {self}")
-            return True
+            return True, f"t  BASE_XOR or BASE_AND: {self}"
         # prev xor xor, prev xor and must have other input as previous NEXT_OR
         if kind == WireTypeData.PREV_XOR_XOR or kind == WireTypeData.PREV_XOR_AND:
-            if DEBUG and DEBUG_PRINT_CHECK_FALSE:
-                print(f"f  PREV_XOR_XOR or PREV_XOR_AND: {self}")
-            return False  # TODO
+            wires = self.edge.ins()
+            if len(wtds[wires[0].name].values) != 1 or len(wtds[wires[1].name].values) != 1:
+                return False, f"f  PREV_XOR_XOR or PREV_XOR_AND (one of inputs has wrong length): {wires=}, {self}"
+            inputs_values = [wtds[wires[i].name].values[0] for i in range(2)]
+            inputs_values.sort()
+            if inputs_values[0][0] != WireTypeData.BASE_XOR or inputs_values[1][0] != WireTypeData.NEXT_OR or \
+                    int(inputs_values[0][1][1:]) != z_index or z_index - 1 != int(inputs_values[1][1][1:]):
+                return False, f"f  PREV_XOR_XOR or PREV_XOR_AND (one of inputs is of wrong type): (kind0,z0),(kind1,z1)={inputs_values}, {self}"
+            return True, f"f  PREV_XOR_XOR or PREV_XOR_AND: {self}"
         # next or must be an input to next PREV_XOR_XOR and PREV_XOR_AND
         if kind == WireTypeData.NEXT_OR:
-            if DEBUG and DEBUG_PRINT_CHECK_FALSE:
-                print(f"f  NEXT_OR: {self}")
-            return False  # TODO
-        raise Exception(f"wtf unknown kind: wire={self.wire}, {kind=}, {z_vert_name=}")
+            outputs = graph.output[self.edge.out.name]
+            if len(outputs) != 2:
+                return False, f"f  NEXT_OR wrong amount of output edges: {outputs=} {self}"
+            wires = [e.out for e in outputs]
+            if len(wtds[wires[0].name].values) != 1 or len(wtds[wires[1].name].values) != 1:
+                return False, f"f  NEXT_OR (one of inputs has wrong length): {wires=}, {self}"
+            inputs_values = [wtds[wires[i].name].values[0] for i in range(2)]
+            inputs_values.sort()
+            if inputs_values[0][0] != WireTypeData.BASE_XOR or inputs_values[1][0] != WireTypeData.BASE_AND or \
+                    int(inputs_values[0][1][1:]) != z_index + 1 or z_index + 1 != int(inputs_values[1][1][1:]):
+                return False, f"f  NEXT_OR (one of inputs is of wrong type): (kind0,z0),(kind1,z1)={inputs_values}, {self}"
+            return False, f"f  NEXT_OR: {self}"
+        raise Exception(f"wtf unknown kind: {self}")
 
     def __repr__(self) -> str:
-        return f"{self.values=}, {self.wire=}"
+        return f"{self.values=}, {self.edge=}"
 
 
 class Solver:
@@ -217,9 +228,9 @@ class Solver:
 
     def solve(self):
         graph = ComputeGraph(self.edges)
-        wire_to_type_data: dict[str, Any] = dict()
+        wire_to_type_data: dict[str, WireTypeData] = dict()
         for v in graph.vertices:
-            wire_to_type_data[v] = WireTypeData(v)
+            wire_to_type_data[v] = WireTypeData(graph.input.get(v, None))
         for z_vert_name in sorted([v for v in graph.vertices if v.startswith("z")]):
             x_vert_name, y_vert_name = "x"+z_vert_name[1:], "y"+z_vert_name[1:]
             # find edges to wires: base_xor, base_and, prev_xor_xor, prev_xor_and, next_or
@@ -244,10 +255,14 @@ class Solver:
                 continue
         bad_wires = []
         for wire, wtd in wire_to_type_data.items():
-            if not wtd.check():
+            result, message = wtd.check(wire_to_type_data, graph)
+            if DEBUG:
+                if result and DEBUG_PRINT_CHECK_TRUE or not result and DEBUG_PRINT_CHECK_FALSE:
+                    print(message)
+            if not result:
                 bad_wires.append(wire)
         if DEBUG:
-            print(len(bad_wires), bad_wires)
+            print(len(bad_wires))
         result = ",".join(bad_wires)
         return result
 
