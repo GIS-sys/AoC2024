@@ -129,10 +129,13 @@ class ComputeGraph:
             main_in, secondary_in = ins, None
         if main_in not in self.output:
             raise EdgeLocationException()
+        result = []
         for edge in self.output[main_in]:
             if edge.operation == operation and (secondary_in is None or edge.in0.name == secondary_in or edge.in1.name == secondary_in):
-                return edge
-        raise EdgeLocationException()
+                result.append(edge)
+        if len(result) != 1:
+            raise EdgeLocationException()
+        return result[0]
 
 
 class WireTypeData:
@@ -141,6 +144,13 @@ class WireTypeData:
     PREV_XOR_XOR = "2"
     PREV_XOR_AND = "3"
     NEXT_OR = "4"
+
+    #    [NEXT_OR]\
+    #              X PREV_XOR_XOR-z
+    #              X PREV_XOR_AND-NEXT_OR
+    #  x-BASE_XOR /              /
+    #   X                       /
+    #  y-BASE_AND--------------/
 
     def __init__(self, edge: ComputeEdge):
         self.values = []
@@ -186,10 +196,10 @@ class WireTypeData:
                 return False, f"f  NEXT_OR (one of inputs has wrong length): {wires=}, {self}"
             inputs_values = [wtds[wires[i].name].values[0] for i in range(2)]
             inputs_values.sort()
-            if inputs_values[0][0] != WireTypeData.BASE_XOR or inputs_values[1][0] != WireTypeData.BASE_AND or \
+            if inputs_values[0][0] != WireTypeData.PREV_XOR_XOR or inputs_values[1][0] != WireTypeData.PREV_XOR_AND or \
                     int(inputs_values[0][1][1:]) != z_index + 1 or z_index + 1 != int(inputs_values[1][1][1:]):
-                return False, f"f  NEXT_OR (one of inputs is of wrong type): (kind0,z0),(kind1,z1)={inputs_values}, {self}"
-            return False, f"f  NEXT_OR: {self}"
+                return False, f"f  NEXT_OR (one of outputs is of wrong type): (kind0,z0),(kind1,z1)={inputs_values}, {self}"
+            return True, f"f  NEXT_OR: {self}"
         raise Exception(f"wtf unknown kind: {self}")
 
     def __repr__(self) -> str:
@@ -253,14 +263,25 @@ class Solver:
                 if DEBUG:
                     print("Error while locating edge according to structure in", z_vert_name)
                 continue
-        bad_wires = []
+        bad_wires_wtd = []
         for wire, wtd in wire_to_type_data.items():
             result, message = wtd.check(wire_to_type_data, graph)
             if DEBUG:
                 if result and DEBUG_PRINT_CHECK_TRUE or not result and DEBUG_PRINT_CHECK_FALSE:
                     print(message)
             if not result:
-                bad_wires.append(wire)
+                bad_wires_wtd.append(wire)
+        # throw out wires which have another bad as input
+        # TODO ?
+        bad_wires_wtd_set = set(bad_wires_wtd)
+        bad_wires = []
+        for wire in bad_wires_wtd_set:
+            ins = graph.input[wire].ins()
+            if ins[0].name in bad_wires_wtd_set or ins[1].name in bad_wires_wtd_set:
+                continue
+            bad_wires.append(wire)
+        # output
+        bad_wires.sort()
         if DEBUG:
             print(len(bad_wires))
         result = ",".join(bad_wires)
