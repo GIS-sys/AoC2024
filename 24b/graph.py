@@ -1,3 +1,8 @@
+# bad: z06, z35
+# good: rdm, z00, z45
+# idk: qhj, ggt
+
+
 import pygame
 import sys
 import numbers
@@ -129,6 +134,7 @@ class Node:
         self.prefix = prefix
         self.height: int = None
         self.position: Point = None
+        self.kind = None
         self.is_bad = False
 
     def __repr__(self) -> str:
@@ -298,6 +304,80 @@ class Graph:
             #    print("Node didn't ultimately change position:", node, node.old_position, node.position)
         return changed_nodes_clean
 
+    def find_bad_nodes(self):
+        for node in self.nodes.values():
+            node.kind = None
+            node.is_bad = False
+        # mark start and end
+        for node in self.nodes.values():
+            if node.name.startswith(("x", "y")):
+                node.kind = "start"
+            if node.name.startswith("z"):
+                node.kind = "end"
+        # mark base XOR and AND
+        for node in self.nodes.values():
+            if node.kind == "start":
+                if len(self.edges[node.name]) != 2:
+                    node.is_bad = True
+                    continue
+                for next_node_name in self.edges[node.name]:
+                    next_node = self.nodes[next_node_name]
+                    if next_node.prefix == "AND":
+                        if next_node.kind and next_node.kind != "base AND":
+                            next_node.is_bad = True
+                            continue
+                        next_node.kind = "base AND"
+                    elif next_node.prefix == "XOR":
+                        if next_node.kind and next_node.kind != "base XOR":
+                            next_node.is_bad = True
+                            continue
+                        next_node.kind = "base XOR"
+                    else:
+                        next_node.is_bad = True
+        # mark next OR
+        for node in self.nodes.values():
+            if node.kind == "base AND":
+                if len(self.edges[node.name]) != 1:
+                    node.is_bad = True
+                    continue
+                next_node_name = self.edges[node.name][0]
+                next_node = self.nodes[next_node_name]
+                if next_node.prefix == "OR":
+                    if next_node.kind:
+                        next_node.is_bad = True
+                        continue
+                    next_node.kind = "next OR"
+                else:
+                    next_node.is_bad = True
+        # mark help AND
+        for node in self.nodes.values():
+            if node.kind == "next OR":
+                if len(self.edges[node.name]) != 2:
+                    node.is_bad = True
+                    continue
+                nnn1, nnn2 = self.redges[node.name]
+                next_node_1 = self.nodes[nnn1]
+                next_node_2 = self.nodes[nnn2]
+                if next_node_1.kind == "base AND":
+                    next_node = next_node_2
+                else:
+                    next_node = next_node_1
+                if next_node.prefix != "AND":
+                    next_node.is_bad = True
+                    continue
+                if next_node.kind:
+                    next_node.is_bad = True
+                    continue
+                next_node.kind = "help AND"
+        # check help AND
+        # check end
+        # TODO
+        # todo mark unkinded
+        print("\nbad:")
+        for node in self.nodes.values():
+            if node.is_bad:
+                print(node.name, node.prefix, node.kind)
+
     def get_for_draw(self) -> tuple[list[Circle], list[Segment]]:
         # initialize heights and positions if needed
         if not self.initialized_positions:
@@ -323,9 +403,7 @@ class Graph:
         for node_name, node in self.nodes.items():
             circles[node_name] = Circle(node.prefix + node.name, node.position, self.CIRCLE_SIZE, bg_color=(GREEN if node in changed else BLACK))
         # find probably bad places and mark circles
-        for node in self.nodes.values():
-            if node.name.startswith("x"):
-                node.is_bad = True  # TODO
+        self.find_bad_nodes()
         # convert edges to segments
         segments: list[Segment] = []
         for node_in, nodes_out in self.edges.items():
