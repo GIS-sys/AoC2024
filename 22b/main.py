@@ -1,27 +1,18 @@
 DEBUG = False
 
 
-def mix(secret: int, result: int) -> int:
-    return secret ^ result
+PRUNE_MASK = 2**24 - 1
 
-def prune(secret: int) -> int:
-    return secret % 2**24
 
 def predict(secret: int, step: int) -> list[int]:
     secrets = [secret]
     for _ in range(step):
-        # step 1
-        result = secret * 64
-        secret = mix(secret, result)
-        secret = prune(secret)
-        # step 2
-        result = secret // 32
-        secret = mix(secret, result)
-        secret = prune(secret)
-        # step 3
-        result = secret * 2048
-        secret = mix(secret, result)
-        secret = prune(secret)
+        result = secret << 6
+        secret = (result ^ secret) & PRUNE_MASK
+        result = secret >> 5
+        secret = (result ^ secret) & PRUNE_MASK
+        result = secret << 11
+        secret = (result ^ secret) & PRUNE_MASK
         secrets.append(secret)
     return secrets
 
@@ -46,7 +37,7 @@ class Solver:
         # find all changes in prices
         all_changes: list[list[int]] = []
         for prices in all_prices:
-            all_changes.append([(prices[i + 1] % 10) - prices[i] for i in range(len(prices) - 1)])
+            all_changes.append([prices[i + 1] - prices[i] for i in range(len(prices) - 1)])
         # create dictionary with all possible 4s of differences, mapping them to the sum of prices
         differences: dict[tuple[int, int, int, int], int] = dict()
         for changes in all_changes:
