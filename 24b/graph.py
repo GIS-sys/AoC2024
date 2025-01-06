@@ -1,9 +1,10 @@
-# bad: z06, z35, dbr/fhc?, z24?
-# good: rdm, z00, z45  krr?, dsn, dgv/mbg?, z01, z07, z11, z23?, z36, mwh
-# idk: qhj, ggt
-# not marked - mks, qhj, vsv, cfp, hqk, bvg, fhc, pdp, mbg
-
+# program output:
 # ['qhj', 'z06', 'ggt', 'cfp', 'z36', 'hqk', 'z11', 'fhc', 'dbr', 'pdp', 'krr', 'mwh', 'mbg', 'z24', 'z23', 'z35', 'dgv', 'z07']
+# real answer:
+# fhc,ggt,hqk,mwh,qhj,z06,z11,z35
+# wrongly accused:
+# cfp z36 dbr pdp krr mbg z23 z24 dgv z07
+
 
 
 import pygame
@@ -15,15 +16,10 @@ from collections.abc import Iterable
 
 
 REPLACEMENTS = [
-    #("vsv", "fhc"),
-    ("z06", "fhc"),
-
-    #("nmm", "qhj"),
-    ("ggt", "mwh"),
-
-    ("z35", "hqk"),
-
-    ("z11", "qhj"),
+#    ("z06", "fhc"),
+#    ("ggt", "mwh"),
+#    ("z35", "hqk"),
+#    ("z11", "qhj"),
 ]
 
 
@@ -451,7 +447,7 @@ class Graph:
                 if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
                     next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
                     #print("!", node.name, next_node_1.kind, next_node_2.kind)
-                    node.is_bad = True  # TODO maybe mark next_node_X also?
+                    node.is_bad = True
                     continue
         # check end
         for node in self.nodes.values():
@@ -480,7 +476,7 @@ class Graph:
                     if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
                         next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
                         #print("!", node.name, next_node_1.kind, next_node_2.kind)
-                        node.is_bad = True  # TODO maybe mark next_node_X also?
+                        node.is_bad = True
         # mark unkinded
         for node in self.nodes.values():
             if not node.kind:
