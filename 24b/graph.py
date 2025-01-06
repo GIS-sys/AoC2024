@@ -111,15 +111,16 @@ class Circle:
 
 
 class Segment:
-    def __init__(self, circle1: Circle, circle2: Circle, color: tuple[int, int, int] = BLACK):
+    def __init__(self, circle1: Circle, circle2: Circle, color: tuple[int, int, int] = BLACK, width: int = 1):
         self.circle1: Circle = circle1
         self.circle2: Circle = circle2
         self.color: tuple[int, int, int] = color
+        self.width = width
 
     def draw(self, surface: Any, camera_offset: Point, scale: float):
         pos1 = (self.circle1.position - camera_offset) * scale
         pos2 = (self.circle2.position - camera_offset) * scale
-        pygame.draw.line(surface, self.color, pos1.to_tuple(), pos2.to_tuple(), 1)
+        pygame.draw.line(surface, self.color, pos1.to_tuple(), pos2.to_tuple(), self.width)
 
 
 class Node:
@@ -128,6 +129,7 @@ class Node:
         self.prefix = prefix
         self.height: int = None
         self.position: Point = None
+        self.is_bad = False
 
     def __repr__(self) -> str:
         return f"({self.prefix + self.name}, h={self.height})"
@@ -143,6 +145,7 @@ class Graph:
         self.redges: dict[str, list[str]] = {}
         self.nodes: dict[str, Node] = {}
         self.initialized_positions = False
+        self.finished_calculating_position = False
         self.numbers_length: int = 0
 
     def read(self):
@@ -296,6 +299,7 @@ class Graph:
         return changed_nodes_clean
 
     def get_for_draw(self) -> tuple[list[Circle], list[Segment]]:
+        # initialize heights and positions if needed
         if not self.initialized_positions:
             self.initialized_positions = True
             self.calculate_heights()
@@ -307,22 +311,39 @@ class Graph:
                     y += int(node.name.startswith("y"))
                     y *= self.CIRCLE_SIZE
                 node.position = Point(x, y)
-        changed = self.calculate_positions()
-        print(f"Changed: {len(changed)}")
+        # move around positions if not finished already
+        changed = set()
+        if not self.finished_calculating_position:
+            changed = self.calculate_positions()
+            print(f"Changed: {len(changed)}")
+            if len(changed) == 0:
+                self.finished_calculating_position = True
+        # convert nodes to circles
         circles: dict[str, Circle] = {}
         for node_name, node in self.nodes.items():
             circles[node_name] = Circle(node.prefix + node.name, node.position, self.CIRCLE_SIZE, bg_color=(GREEN if node in changed else BLACK))
+        # find probably bad places and mark circles
+        for node in self.nodes.values():
+            if node.name.startswith("x"):
+                node.is_bad = True  # TODO
+        # convert edges to segments
         segments: list[Segment] = []
         for node_in, nodes_out in self.edges.items():
             for node_out in nodes_out:
-                segments.append(Segment(circles[node_in], circles[node_out]))
-        return circles.values(), segments, len(changed) == 0
+                if self.nodes[node_in].is_bad or self.nodes[node_out].is_bad:
+                    color = RED
+                    width = 8
+                else:
+                    color = BLACK
+                    width = 1
+                segments.append(Segment(circles[node_in], circles[node_out], color=color, width=width))
+        return circles.values(), segments
 
 
 def main():
     graph = Graph()
     graph.read()
-    circles, segments, stop_updating = graph.get_for_draw()
+    circles, segments = graph.get_for_draw()
 
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -336,7 +357,6 @@ def main():
     max_y += (max_y - min_y) * CAMERA_INIT_MARGIN
     camera_offset = Point(min_x, min_y)
     scale = min(WIDTH / (max_x - min_x), HEIGHT / (max_y - min_y))
-    stop_updating = False
 
     search_text = ""
 
@@ -347,7 +367,7 @@ def main():
                 sys.exit()
             if event.type == pygame.KEYUP:
                 search_text = (search_text + event.unicode)[-3:]
-                print(search_text)
+                print("Searching for:", search_text)
 
         keys = pygame.key.get_pressed()
         
@@ -367,15 +387,11 @@ def main():
             scale /= CAMERA_SCALE_RATE
 
         screen.fill(WHITE)
-        if not stop_updating:
-            circles, segments, stop_updating = graph.get_for_draw()
+        circles, segments = graph.get_for_draw()
         for circle in circles:
             if search_text in circle.name.lower():
                 circle.bg_color = RED
                 circle.radius = Graph.CIRCLE_SIZE * 8
-            else:
-                circle.bg_color = BLACK
-                circle.radius = Graph.CIRCLE_SIZE
         for segment in segments:
             segment.draw(screen, camera_offset, scale)
         for circle in circles:
