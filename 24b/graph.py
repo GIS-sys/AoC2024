@@ -1,6 +1,8 @@
 # bad: z06, z35, dbr/fhc?, z24?
 # good: rdm, z00, z45  krr?, dsn, dgv/mbg?, z01, z07, z11, z23?, z36, mwh
 # idk: qhj, ggt
+# not marked - mks, qhj, vsv, cfp, hqk, bvg, fhc, pdp, mbg
+
 
 # z06, z35  +  dbr/fhc, z24  +  qhj, ggt  +  krr, dgv/mbg, z23
 
@@ -419,6 +421,10 @@ class Graph:
                     else:
                         next_node.is_bad = True
         # TODO mark unkinded
+        for node in self.nodes.values():
+            if not node.kind:
+                node.is_bad = True
+                print(node.name, "<")
         print("\nbad:")
         for node in self.nodes.values():
             if node.is_bad:
