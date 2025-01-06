@@ -1,10 +1,20 @@
-# program output:
-# ['qhj', 'z06', 'ggt', 'cfp', 'z36', 'hqk', 'z11', 'fhc', 'dbr', 'pdp', 'krr', 'mwh', 'mbg', 'z24', 'z23', 'z35', 'dgv', 'z07']
 # real answer:
 # fhc,ggt,hqk,mwh,qhj,z06,z11,z35
+
+# program output:
+# ['qhj', 'z06', 'ggt', 'cfp', 'z36', 'hqk', 'z11', 'fhc', 'dbr', 'pdp', 'krr', 'mwh', 'mbg', 'z24', 'z23', 'z35', 'dgv', 'z07']
 # wrongly accused:
 # cfp z36 dbr pdp krr mbg z23 z24 dgv z07
 
+# program output:
+# ['qhj', 'z06', 'ggt', 'z36', 'hqk', 'z11', 'fhc', 'krr', 'mwh', 'z24', 'z35', 'dgv']
+# wrongly accused:
+# krr, z24, z36, dgv
+
+# program output:
+# ['qhj', 'z06', 'ggt', 'hqk', 'z11', 'fhc', 'mwh', 'z35']
+# wrongly accused:
+#
 
 
 import pygame
@@ -481,6 +491,14 @@ class Graph:
         for node in self.nodes.values():
             if not node.kind:
                 node.is_bad = True
+        # unmark those who has bad children
+        for node in self.nodes.values():
+            if node.is_bad:
+                for child_name in self.redges[node.name]:
+                    child = self.nodes[child_name]
+                    if child.is_bad or child.kind is None:
+                        node.is_bad = False
+                        break
         print("\n\n\nbad:")
         print([n.name for n in self.nodes.values() if n.is_bad])
         for node in sorted(self.nodes.values(), key=lambda x: x.name):
