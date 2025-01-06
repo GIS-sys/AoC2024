@@ -3,8 +3,7 @@
 # idk: qhj, ggt
 # not marked - mks, qhj, vsv, cfp, hqk, bvg, fhc, pdp, mbg
 
-
-# z06, z35  +  dbr/fhc, z24  +  qhj, ggt  +  krr, dgv/mbg, z23
+# ['qhj', 'z06', 'ggt', 'cfp', 'z36', 'hqk', 'z11', 'fhc', 'dbr', 'pdp', 'krr', 'mwh', 'mbg', 'z24', 'z23', 'z35', 'dgv', 'z07']
 
 
 import pygame
@@ -13,6 +12,19 @@ import numbers
 import math
 from typing import Any
 from collections.abc import Iterable
+
+
+REPLACEMENTS = [
+    #("vsv", "fhc"),
+    ("z06", "fhc"),
+
+    #("nmm", "qhj"),
+    ("ggt", "mwh"),
+
+    ("z35", "hqk"),
+
+    ("z11", "qhj"),
+]
 
 
 WIDTH, HEIGHT = 800, 600
@@ -170,10 +182,16 @@ class Graph:
         self.build()
 
     def build(self):
+        replacements: dict[str, str] = {}
+        for a, b in REPLACEMENTS:
+            replacements[a] = b
+            replacements[b] = a
         self.edges: dict[str, list[str]] = {}
         self.redges: dict[str, list[str]] = {}
         self.nodes: dict[str, Node] = {}
         for in1, in2, out, op in self.raw_edges:
+            if out in replacements:
+                out = replacements[out]
             if in1 not in self.nodes:
                 self.nodes[in1] = Node(in1)
             if in2 not in self.nodes:
@@ -261,6 +279,18 @@ class Graph:
                     if next_node.position.x >= n1.position.x and next_node.height < n2.height:
                         return False
             return True
+        def allow_swapping_no_near(n1: Node, n2: Node):
+            if not allow_swapping_name(n1, n2):
+                return False
+            for next_node_name in self.nodes:
+                if next_node_name == n1.name or next_node_name == n2.name:
+                    continue
+                next_node = self.nodes[next_node_name]
+                if norm(next_node.position, n1.position) <= 2 * self.CIRCLE_SIZE**2:
+                    return False
+                if norm(next_node.position, n2.position) <= 2 * self.CIRCLE_SIZE**2:
+                    return False
+            return True
 
         #for n1 in self.nodes.values():
         #    for n2_name in self.edges.get(n1.name, []):
@@ -272,6 +302,7 @@ class Graph:
         #            input()
 
         swaps = [swap_all, swap_x, swap_y, move_up, move_down]
+        #allow_swaps = [allow_swapping_preserve_hierarchy, lambda a, b: allow_swapping_preserve_hierarchy(a, b) and allow_swapping_no_near(a, b), allow_swapping_no_near, allow_swapping_no_near, allow_swapping_no_near]
         allow_swaps = [allow_swapping_preserve_hierarchy, allow_swapping_preserve_hierarchy, allow_swapping_name, allow_swapping_name, allow_swapping_name]
 
         changed = True
@@ -328,7 +359,7 @@ class Graph:
                     next_node = self.nodes[next_node_name]
                     if node.name[1:] == "00":
                         if next_node.prefix == "AND":
-                            if next_node.kind and next_node.kind != "base AND":
+                            if next_node.kind and next_node.kind != "next OR":
                                 next_node.is_bad = True
                                 continue
                             next_node.kind = "next OR"
@@ -352,6 +383,25 @@ class Graph:
                             next_node.kind = "base XOR"
                         else:
                             next_node.is_bad = True
+        # check base XOR
+        for node in self.nodes.values():
+            if node.kind == "base XOR":
+                if len(self.edges[node.name]) != 2:
+                    node.is_bad = True
+                    continue
+                for next_node_name in self.edges[node.name]:
+                    next_node = self.nodes[next_node_name]
+                    if next_node.prefix == "AND":
+                        if next_node.kind:
+                            next_node.is_bad = True
+                            continue
+                        next_node.kind = "help AND"
+                    elif next_node.prefix == "XOR":
+                        if next_node.kind and next_node.kind != "end":
+                            next_node.is_bad = True
+                            continue
+                    else:
+                        next_node.is_bad = True
         # mark next OR
         for node in self.nodes.values():
             if node.kind == "base AND":
@@ -385,7 +435,7 @@ class Graph:
                 if next_node.prefix != "AND":
                     next_node.is_bad = True
                     continue
-                if next_node.kind:
+                if next_node.kind and next_node.kind != "help AND":
                     next_node.is_bad = True
                     continue
                 next_node.kind = "help AND"
@@ -431,34 +481,23 @@ class Graph:
                         next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
                         #print("!", node.name, next_node_1.kind, next_node_2.kind)
                         node.is_bad = True  # TODO maybe mark next_node_X also?
-        # check base XOR
-        for node in self.nodes.values():
-            if node.kind == "base XOR":
-                if len(self.edges[node.name]) != 2:
-                    node.is_bad = True
-                    continue
-                for next_node_name in self.edges[node.name]:
-                    next_node = self.nodes[next_node_name]
-                    #print("@", node.name, next_node.name, next_node.kind)
-                    if next_node.prefix == "AND":
-                        if next_node.kind and next_node.kind != "help AND":
-                            next_node.is_bad = True
-                            continue
-                    elif next_node.prefix == "XOR":
-                        if next_node.kind and next_node.kind != "end":
-                            next_node.is_bad = True
-                            continue
-                    else:
-                        next_node.is_bad = True
         # mark unkinded
         for node in self.nodes.values():
             if not node.kind:
                 node.is_bad = True
-                print(node.name, "<")
-        print("\nbad:")
-        for node in self.nodes.values():
+        print("\n\n\nbad:")
+        print([n.name for n in self.nodes.values() if n.is_bad])
+        for node in sorted(self.nodes.values(), key=lambda x: x.name):
             if node.is_bad:
-                print(node.name, node.prefix, node.kind)
+                print(f"{node.name} op={node.prefix} kind={node.kind}")
+                print("prev:")
+                for next_node_name in self.redges.get(node.name, []):
+                    next_node = self.nodes[next_node_name]
+                    print(f"\t{next_node.name} op={next_node.prefix} kind={next_node.kind}")
+                print("next:")
+                for next_node_name in self.edges.get(node.name, []):
+                    next_node = self.nodes[next_node_name]
+                    print(f"\t{next_node.name} op={next_node.prefix} kind={next_node.kind}")
 
     def get_for_draw(self) -> tuple[list[Circle], list[Segment]]:
         # initialize heights and positions if needed
