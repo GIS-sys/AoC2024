@@ -1,6 +1,8 @@
-# bad: z06, z35
-# good: rdm, z00, z45
+# bad: z06, z35, dbr/fhc?, z24?
+# good: rdm, z00, z45  krr?, dsn, dgv/mbg?, z01, z07, z11, z23?, z36, mwh
 # idk: qhj, ggt
+
+# z06, z35  +  dbr/fhc, z24  +  qhj, ggt  +  krr, dgv/mbg, z23
 
 
 import pygame
@@ -370,9 +372,53 @@ class Graph:
                     continue
                 next_node.kind = "help AND"
         # check help AND
+        for node in self.nodes.values():
+            if node.kind == "help AND":
+                if len(self.edges[node.name]) != 1:
+                    node.is_bad = True
+                    continue
+                nnn1, nnn2 = self.redges[node.name]
+                next_node_1 = self.nodes[nnn1]
+                next_node_2 = self.nodes[nnn2]
+                if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
+                    next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
+                    #print("!", node.name, next_node_1.kind, next_node_2.kind)
+                    node.is_bad = True  # TODO maybe mark next_node_X also?
+                    continue
         # check end
-        # TODO
-        # todo mark unkinded
+        for node in self.nodes.values():
+            if node.kind == "end":
+                if node.prefix != "XOR":
+                    node.is_bad = True
+                    continue
+                nnn1, nnn2 = self.redges[node.name]
+                next_node_1 = self.nodes[nnn1]
+                next_node_2 = self.nodes[nnn2]
+                if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
+                    next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
+                    #print("!", node.name, next_node_1.kind, next_node_2.kind)
+                    node.is_bad = True  # TODO maybe mark next_node_X also?
+                    continue
+        # check base XOR
+        for node in self.nodes.values():
+            if node.kind == "base XOR":
+                if len(self.edges[node.name]) != 2:
+                    node.is_bad = True
+                    continue
+                for next_node_name in self.edges[node.name]:
+                    next_node = self.nodes[next_node_name]
+                    #print("@", node.name, next_node.name, next_node.kind)
+                    if next_node.prefix == "AND":
+                        if next_node.kind and next_node.kind != "help AND":
+                            next_node.is_bad = True
+                            continue
+                    elif next_node.prefix == "XOR":
+                        if next_node.kind and next_node.kind != "end":
+                            next_node.is_bad = True
+                            continue
+                    else:
+                        next_node.is_bad = True
+        # TODO mark unkinded
         print("\nbad:")
         for node in self.nodes.values():
             if node.is_bad:
