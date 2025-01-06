@@ -10,6 +10,7 @@ WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 GRAY = (127, 127, 127)
 GREEN = (0, 127, 0)
+RED = (127, 0, 0)
 BLACK = (0, 0, 0)
 FPS = 60
 CAMERA_MOVEMENT_RATE = 150.0
@@ -337,11 +338,16 @@ def main():
     scale = min(WIDTH / (max_x - min_x), HEIGHT / (max_y - min_y))
     stop_updating = False
 
+    search_text = ""
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.KEYUP:
+                search_text = (search_text + event.unicode)[-3:]
+                print(search_text)
 
         keys = pygame.key.get_pressed()
         
@@ -363,6 +369,13 @@ def main():
         screen.fill(WHITE)
         if not stop_updating:
             circles, segments, stop_updating = graph.get_for_draw()
+        for circle in circles:
+            if search_text in circle.name.lower():
+                circle.bg_color = RED
+                circle.radius = Graph.CIRCLE_SIZE * 8
+            else:
+                circle.bg_color = BLACK
+                circle.radius = Graph.CIRCLE_SIZE
         for segment in segments:
             segment.draw(screen, camera_offset, scale)
         for circle in circles:
