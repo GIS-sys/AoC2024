@@ -12,4 +12,4 @@ to run all the tasks with your inputs. Make sure every input file ends with a ne
 
 # TODO
 
-Improve speed of 20b, 22b, 23b
+Improve speed of 22b, 23b

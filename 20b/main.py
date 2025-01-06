@@ -57,16 +57,19 @@ class Solver:
         if DEBUG:
             print(self.distances)
         # now check each cell and find cheats when we save more than specified amount of time
-        for x in range(self.width):
-            for y in range(self.height):
+        for x in range(1, self.width - 1):
+            for y in range(1, self.height - 1):
+                if self.field[y][x] != SYMBOL_EMPTY:
+                    continue
                 for dx in range(-AMOUNT_OF_CHEATS, AMOUNT_OF_CHEATS + 1):
-                    for dy in range(-AMOUNT_OF_CHEATS, AMOUNT_OF_CHEATS + 1):
+                    dy_range = AMOUNT_OF_CHEATS - abs(dx)
+                    for dy in range(-dy_range, dy_range + 1):
                         if abs(dx) + abs(dy) > AMOUNT_OF_CHEATS:
                             continue
                         next_x, next_y = x + dx, y + dy
                         if not (0 <= next_x < self.width and 0 <= next_y < self.height):
                             continue
-                        if self.field[y][x] != SYMBOL_EMPTY or self.field[next_y][next_x] != SYMBOL_EMPTY:
+                        if self.field[next_y][next_x] != SYMBOL_EMPTY:
                             continue
                         time_save = self.distances[y][x] - self.distances[next_y][next_x] - (abs(dx) + abs(dy))
                         if time_save >= TIME_TO_SAVE:
