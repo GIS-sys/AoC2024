@@ -326,18 +326,32 @@ class Graph:
                     continue
                 for next_node_name in self.edges[node.name]:
                     next_node = self.nodes[next_node_name]
-                    if next_node.prefix == "AND":
-                        if next_node.kind and next_node.kind != "base AND":
+                    if node.name[1:] == "00":
+                        if next_node.prefix == "AND":
+                            if next_node.kind and next_node.kind != "base AND":
+                                next_node.is_bad = True
+                                continue
+                            next_node.kind = "next OR"
+                        elif next_node.prefix == "XOR":
+                            if next_node.kind and next_node.kind != "end":
+                                next_node.is_bad = True
+                                continue
+                            next_node.kind = "end"
+                        else:
                             next_node.is_bad = True
-                            continue
-                        next_node.kind = "base AND"
-                    elif next_node.prefix == "XOR":
-                        if next_node.kind and next_node.kind != "base XOR":
-                            next_node.is_bad = True
-                            continue
-                        next_node.kind = "base XOR"
                     else:
-                        next_node.is_bad = True
+                        if next_node.prefix == "AND":
+                            if next_node.kind and next_node.kind != "base AND":
+                                next_node.is_bad = True
+                                continue
+                            next_node.kind = "base AND"
+                        elif next_node.prefix == "XOR":
+                            if next_node.kind and next_node.kind != "base XOR":
+                                next_node.is_bad = True
+                                continue
+                            next_node.kind = "base XOR"
+                        else:
+                            next_node.is_bad = True
         # mark next OR
         for node in self.nodes.values():
             if node.kind == "base AND":
@@ -362,6 +376,8 @@ class Graph:
                 nnn1, nnn2 = self.redges[node.name]
                 next_node_1 = self.nodes[nnn1]
                 next_node_2 = self.nodes[nnn2]
+                if next_node_1.kind == "start" and next_node_2.kind == "start":
+                    continue
                 if next_node_1.kind == "base AND":
                     next_node = next_node_2
                 else:
@@ -390,17 +406,31 @@ class Graph:
         # check end
         for node in self.nodes.values():
             if node.kind == "end":
+                if node.name == f"z{self.numbers_length}":
+                    node.is_bad = False
+                    nnn1, nnn2 = self.redges[node.name]
+                    next_node_1 = self.nodes[nnn1]
+                    next_node_2 = self.nodes[nnn2]
+                    if next_node_1.kind == "base AND":
+                        next_node = next_node_2
+                    else:
+                        next_node = next_node_1
+                    next_node.kind = "help AND"
+                    continue
                 if node.prefix != "XOR":
                     node.is_bad = True
                     continue
                 nnn1, nnn2 = self.redges[node.name]
                 next_node_1 = self.nodes[nnn1]
                 next_node_2 = self.nodes[nnn2]
-                if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
-                    next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
-                    #print("!", node.name, next_node_1.kind, next_node_2.kind)
-                    node.is_bad = True  # TODO maybe mark next_node_X also?
-                    continue
+                if node.name == "z00":
+                    if not (next_node_1.kind == "start" and next_node_2.kind == "start"):
+                        node.is_bad = True
+                else:
+                    if not (next_node_1.kind == "base XOR" and next_node_2.kind == "next OR" or
+                        next_node_2.kind == "base XOR" and next_node_1.kind == "next OR"):
+                        #print("!", node.name, next_node_1.kind, next_node_2.kind)
+                        node.is_bad = True  # TODO maybe mark next_node_X also?
         # check base XOR
         for node in self.nodes.values():
             if node.kind == "base XOR":
@@ -420,7 +450,7 @@ class Graph:
                             continue
                     else:
                         next_node.is_bad = True
-        # TODO mark unkinded
+        # mark unkinded
         for node in self.nodes.values():
             if not node.kind:
                 node.is_bad = True
@@ -450,6 +480,12 @@ class Graph:
             print(f"Changed: {len(changed)}")
             if len(changed) == 0:
                 self.finished_calculating_position = True
+                print("Enter python commands:")
+                try:
+                    while True:
+                        print(exec(input()))
+                except:
+                    pass
         # convert nodes to circles
         circles: dict[str, Circle] = {}
         for node_name, node in self.nodes.items():
