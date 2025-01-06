@@ -162,8 +162,10 @@ class WireTypeData:
     def check(self, wtds: dict[str, Self], graph: ComputeGraph) -> tuple[bool, str]:
         # TODO may be a problem if locate_edge can return several, then we may incorrectly assign all system
         if self.edge is None or self.edge.out.name.startswith(("x", "y")):
-            return True, "t  x/y"
+            #return [], "t  x/y"
+            return True, "t  x/y" # TODO
         if len(self.values) != 1:
+            #return [self.edge.in0, self.edge.in1, self.edge.out], f"f  len(self.values) != 1: {self}"
             return False, f"f  len(self.values) != 1: {self}"
         kind, z_vert_name = self.values[0]
         z_index = int(z_vert_name[1:])
@@ -268,18 +270,19 @@ class Solver:
             result, message = wtd.check(wire_to_type_data, graph)
             if DEBUG:
                 if result and DEBUG_PRINT_CHECK_TRUE or not result and DEBUG_PRINT_CHECK_FALSE:
-                    print(message)
+                    print(wire, message)
             if not result:
                 bad_wires_wtd.append(wire)
         # throw out wires which have another bad as input
-        # TODO ?
-        bad_wires_wtd_set = set(bad_wires_wtd)
-        bad_wires = []
-        for wire in bad_wires_wtd_set:
-            ins = graph.input[wire].ins()
-            if ins[0].name in bad_wires_wtd_set or ins[1].name in bad_wires_wtd_set:
-                continue
-            bad_wires.append(wire)
+        bad_wires = bad_wires_wtd
+        ## TODO ?
+        #bad_wires_wtd_set = set(bad_wires_wtd)
+        #bad_wires = []
+        #for wire in bad_wires_wtd_set:
+        #    ins = graph.input[wire].ins()
+        #    if ins[0].name in bad_wires_wtd_set or ins[1].name in bad_wires_wtd_set:
+        #        continue
+        #    bad_wires.append(wire)
         # output
         bad_wires.sort()
         if DEBUG:
